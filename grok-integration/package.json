@@ -17,7 +17,17 @@
         "command": "grok-integration.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Grok Integration",
+      "properties": {
+        "grok.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your xAI API key"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -27,15 +37,5 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
-  "devDependencies": {
-    "@types/vscode": "^1.102.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
   }
-}
+

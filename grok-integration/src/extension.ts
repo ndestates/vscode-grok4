@@ -1,26 +1,70 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import OpenAI from 'openai';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  const disposable = vscode.commands.registerCommand('grok-integration.askGrok', async () => {
+    // Get API key from settings
+    const config = vscode.workspace.getConfiguration('grok');
+    const apiKey = config.get<string>('apiKey');
+    if (!apiKey) {
+      vscode.window.showErrorMessage('Please set your xAI API key in settings.');
+      return;
+    }
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "grok-integration" is now active!');
+    // Get selected text from active editor
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('No active editor.');
+      return;
+    }
+    const selection = editor.selection;
+    const selectedText = editor.document.getText(selection).trim();
+    if (!selectedText) {
+      vscode.window.showErrorMessage('No text selected.');
+      return;
+    }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('grok-integration.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Grok Integration!');
-	});
+    // Prompt user for question (or use a default)
+    const userPrompt = await vscode.window.showInputBox({
+      prompt: 'What do you want to ask Grok about this code?',
+      value: 'Explain this code:'
+    });
+    if (!userPrompt) return;
 
-	context.subscriptions.push(disposable);
+    // Initialize OpenAI client with xAI base URL
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: 'https://api.x.ai/v1'
+    });
+
+    try {
+      // Call Grok API (use 'grok-3-beta' or latest model)
+      const response = await openai.chat.completions.create({
+        model: 'grok-3-beta',  // Replace with desired model, e.g., 'grok-3-mini-beta'
+        messages: [
+          { role: 'system', content: 'You are a helpful coding assistant.' },
+          { role: 'user', content: `${userPrompt}\n\n${selectedText}` }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      });
+
+      const grokResponse = response.choices[0]?.message?.content || 'No response received.';
+
+      // Display response in a webview panel
+      const panel = vscode.window.createWebviewPanel(
+        'grokResponse',
+        'Grok Response',
+        vscode.ViewColumn.Beside,
+        {}
+      );
+      panel.webview.html = `<h1>Grok's Response</h1><pre>${grokResponse}</pre>`;
+    } catch (error) {
+      vscode.window.showErrorMessage(`Error calling Grok API: ${error.message}`);
+    }
+  });
+
+  context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
