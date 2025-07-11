@@ -60,7 +60,8 @@ export function activate(context: vscode.ExtensionContext) {
       );
       panel.webview.html = `<h1>Grok's Response</h1><pre>${grokResponse}</pre>`;
     } catch (error) {
-      vscode.window.showErrorMessage(`Error calling Grok API: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Error calling Grok API: ${errorMessage}`);
     }
   });
 

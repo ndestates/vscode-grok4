@@ -1,31 +1,28 @@
-# grok-integration README
+# Grok Integration
 
-This is the README for your extension "grok-integration". After writing up a brief description, we recommend including the following sections.
+A VS Code extension that integrates Grok AI into your development workflow.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- Ask Grok AI questions directly from VS Code
+- Get AI-powered assistance with your code
+- Seamless integration with the xAI API
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- A valid xAI API key
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+* `grok.apiKey`: Your xAI API key for accessing Grok
+
+## Usage
+
+1. Set your xAI API key in the extension settings
+2. Use the "Ask Grok" command from the Command Palette
+3. Enter your question and get AI-powered responses
 
 ## Known Issues
 
