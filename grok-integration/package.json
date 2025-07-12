@@ -24,6 +24,22 @@
         "title": "Ask Grok about Selected Code"
       },
       {
+        "command": "grok-integration.askGrokInline",
+        "title": "Ask Grok (Inline Chat)"
+      },
+      {
+        "command": "grok-integration.editWithGrok",
+        "title": "Edit with Grok"
+      },
+      {
+        "command": "grok-integration.explainCode",
+        "title": "Explain Code with Grok"
+      },
+      {
+        "command": "grok-integration.reviewCode",
+        "title": "Review Code with Grok"
+      },
+      {
         "command": "grok-integration.enterLicenseKey",
         "title": "Enter License Key"
       },
@@ -41,7 +57,33 @@
         "id": "grok-integration.grok",
         "name": "grok",
         "description": "Ask Grok AI questions about your code",
-        "isSticky": true
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "explain",
+            "description": "Explain code in detail"
+          },
+          {
+            "name": "review",
+            "description": "Review code quality and suggest improvements"
+          },
+          {
+            "name": "debug",
+            "description": "Help debug issues and find bugs"
+          },
+          {
+            "name": "refactor",
+            "description": "Suggest code refactoring improvements"
+          },
+          {
+            "name": "test",
+            "description": "Generate unit tests for code"
+          },
+          {
+            "name": "optimize",
+            "description": "Suggest performance optimizations"
+          }
+        ]
       }
     ],
     "configuration": {
@@ -60,7 +102,58 @@
           "scope": "application"
         }
       }
-    }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "grok-integration.explainCode",
+          "when": "editorHasSelection",
+          "group": "grok@1"
+        },
+        {
+          "command": "grok-integration.reviewCode", 
+          "when": "editorHasSelection",
+          "group": "grok@2"
+        },
+        {
+          "command": "grok-integration.editWithGrok",
+          "when": "editorHasSelection",
+          "group": "grok@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "grok-integration.askGrokInline",
+          "when": "editorIsOpen"
+        },
+        {
+          "command": "grok-integration.editWithGrok", 
+          "when": "editorIsOpen"
+        },
+        {
+          "command": "grok-integration.explainCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "grok-integration.reviewCode",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "grok-integration.askGrokInline",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "grok-integration.editWithGrok",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e", 
+        "when": "editorHasSelection"
+      }
+    ]
   },
   "dependencies": {
     "openai": "^5.9.0"

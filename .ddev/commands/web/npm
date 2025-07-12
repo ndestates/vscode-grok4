@@ -1,0 +1,7 @@
+#!/bin/bash
+
+## Description: Run npm commands inside the web container
+## Usage: npm [args]
+## Example: "ddev npm install" or "ddev npm run build"
+
+npm "$@"

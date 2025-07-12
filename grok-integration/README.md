@@ -22,12 +22,33 @@ Once published to the marketplace:
 
 ## Features
 
-- **🔥 Chat Participant**: Use `@grok` in VS Code's chat panel alongside other agents
+- **🤖 Chat Agent**: Use `@grok` in VS Code's chat panel alongside other AI agents
+- **💬 Ask & Edit Experience**: 
+  - **Inline Chat**: Press `Ctrl+Shift+G` (or `Cmd+Shift+G` on Mac) to quickly ask Grok questions
+  - **Code Editing**: Select code and press `Ctrl+Shift+E` (or `Cmd+Shift+E` on Mac) to edit with Grok
+  - **Context Menu**: Right-click selected code for "Explain", "Review", or "Edit with Grok" options
 - **💬 Real-time Streaming**: Get responses as they're generated
 - **🧠 Context Aware**: Maintains conversation history for better responses
 - **🎯 Smart Followups**: Suggested follow-up questions for deeper exploration
 - **🔧 Code Integration**: Ask about selected code or general programming questions
 - **🚀 Easy Setup**: Demo license included, just add your xAI API key
+
+### Available Commands
+
+- **Ask Grok (Inline Chat)**: `Ctrl+Shift+G` / `Cmd+Shift+G` - Quick access to Grok chat
+- **Edit with Grok**: `Ctrl+Shift+E` / `Cmd+Shift+E` - Edit selected code with Grok's help
+- **Explain Code with Grok**: Right-click context menu - Get detailed code explanations
+- **Review Code with Grok**: Right-click context menu - Get code review and suggestions
+
+### Slash Commands in Chat
+
+When using `@grok` in the chat panel, you can use these specialized commands:
+- `/explain` - Get detailed code explanations
+- `/review` - Code review and quality assessment
+- `/debug` - Help identify and fix bugs
+- `/refactor` - Suggestions for code improvements
+- `/test` - Generate unit tests
+- `/optimize` - Performance optimization suggestions
 
 ## Requirements
 
