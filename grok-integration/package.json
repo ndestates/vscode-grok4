@@ -2,7 +2,13 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "publisher": "ndestates",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ndestates/vscode-grok4.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -14,17 +20,44 @@
   "contributes": {
     "commands": [
       {
-        "command": "grok-integration.helloWorld",
-        "title": "Hello World"
+        "command": "grok-integration.askGrok",
+        "title": "Ask Grok about Selected Code"
+      },
+      {
+        "command": "grok-integration.enterLicenseKey",
+        "title": "Enter License Key"
+      },
+      {
+        "command": "grok-integration.checkLicense",
+        "title": "Check License Status"
+      },
+      {
+        "command": "grok-integration.purchaseLicense",
+        "title": "Purchase License"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "grok-integration.grok",
+        "name": "grok",
+        "description": "Ask Grok AI questions about your code",
+        "isSticky": true
       }
     ],
     "configuration": {
       "title": "Grok Integration",
       "properties": {
-        "grok.apiKey": {
+        "grokIntegration.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your xAI API key"
+          "description": "Your xAI API key for accessing Grok",
+          "scope": "application"
+        },
+        "grokIntegration.licenseKey": {
+          "type": "string",
+          "default": "GI-DEMO1234-ABCD5678-EFGH9012",
+          "description": "Your Grok Integration license key (Demo key included)",
+          "scope": "application"
         }
       }
     }

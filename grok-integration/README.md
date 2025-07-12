@@ -6,7 +6,7 @@ A VS Code extension that integrates Grok AI into your development workflow.
 
 ### Option 1: Install from VSIX file (Current)
 1. Build the extension by running `vsce package` in the project directory
-2. This creates a `grok-integration-0.0.1.vsix` file
+2. This creates a `grok-integration-0.0.3.vsix` file
 3. Open VS Code
 4. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
 5. Type "Extensions: Install from VSIX..."
@@ -22,91 +22,121 @@ Once published to the marketplace:
 
 ## Features
 
-- Ask Grok AI questions directly from VS Code
-- Get AI-powered assistance with your code
-- Seamless integration with the xAI API
+- **🔥 Chat Participant**: Use `@grok` in VS Code's chat panel alongside other agents
+- **💬 Real-time Streaming**: Get responses as they're generated
+- **🧠 Context Aware**: Maintains conversation history for better responses
+- **🎯 Smart Followups**: Suggested follow-up questions for deeper exploration
+- **🔧 Code Integration**: Ask about selected code or general programming questions
+- **🚀 Easy Setup**: Demo license included, just add your xAI API key
 
 ## Requirements
 
 - A valid xAI API key
+- **A valid license key (One-time purchase: $50 USD)**
+
+## Licensing
+
+This extension requires a valid license key for activation. Each license supports one user and includes:
+- ✅ Unlimited usage of Grok integration features
+- ✅ All future updates within the major version
+- ✅ Email support
+
+### Purchase License
+Use the command "Purchase License" from the Command Palette or visit our website.
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
-* `grok.apiKey`: Your xAI API key for accessing Grok
+* `grokIntegration.apiKey`: Your xAI API key for accessing Grok
+* `grokIntegration.licenseKey`: Your license key (Demo key included by default)
 
 ## Setup
 
-### 1. Get your xAI API Key
-1. Go to https://platform.x.ai/
+### Step 1: Install Extension
+The extension comes with a **demo license key pre-installed** - no license setup needed!
+
+### Step 2: Get Your xAI API Key
+1. Visit: https://platform.x.ai/
 2. Sign in with your X (Twitter) account
 3. Navigate to the API section
-4. Create or copy your API key
+4. Copy your API key
 
-### 2. Configure the Extension
-1. Open VS Code Settings:
-   - **Windows/Linux**: `Ctrl + ,`
-   - **macOS**: `Cmd + ,`
-   - Or go to `File > Preferences > Settings`
-2. Search for "grok" in the settings search bar
-3. Find "Grok: Api Key" setting
-4. Paste your xAI API key into the text field
+### Step 3: Enter Your API Key
+1. **Open Settings**: Press `Ctrl+,` (Windows/Linux) or `Cmd+,` (Mac)
+2. **Search**: Type "grok integration" in the search box
+3. **Enter API Key**: Paste your xAI API key in "Grok Integration: Api Key" field
 
-**Alternative method:**
-1. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
-2. Type "Preferences: Open Settings (JSON)"
-3. Add this line to your settings.json:
-   ```json
-   "grok.apiKey": "your-xai-api-key-here"
-   ```
+### Step 4: Start Using Grok
+1. **Open Chat Panel**: Press `Ctrl+Alt+I` (Windows/Linux) or `Cmd+Alt+I` (Mac)
+2. **Type**: `@grok Hello!` and press Enter
+3. **Success!** You should see Grok respond in the chat
 
-## Usage
+## How to Use
 
-1. Use the "Ask Grok about Selected Code" command from the Command Palette
-2. Select code in your editor first, then run the command
-3. Enter your question about the selected code
-4. View Grok's response in a new panel
+### 🎯 **Primary Method: Chat Panel (Recommended)**
+1. **Open Chat Panel**: Press `Ctrl+Alt+I` (Windows/Linux) or `Cmd+Alt+I` (Mac)
+2. **Type**: `@grok` followed by your question
+3. **Examples**:
+   - `@grok How do I optimize this React component?`
+   - `@grok Explain async/await in JavaScript`
+   - `@grok What's wrong with my Python code?`
+4. **Get Response**: Streaming response with smart followup suggestions
+
+### 🔧 **Alternative: Command Method**
+1. **Select some code** in any file
+2. **Open Command Palette**: Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
+3. **Type**: "Ask Grok about Selected Code" and press Enter
+4. **Enter your question** and view response in a panel
+
+### Other Useful Commands
+- **"Check License Status"** - See if your license is working
+- **"Enter License Key"** - Manually enter a license key
+- **"Purchase License"** - Get a new license or demo key
+
+## Troubleshooting
+
+### "Please set your xAI API key" error
+1. Press `Ctrl+,` (Windows/Linux) or `Cmd+,` (Mac)
+2. Search "grok integration"
+3. Paste your API key in "Grok Integration: Api Key"
+
+### Settings not showing up when searching "grok"
+1. Try searching "grok integration" instead
+2. Or scroll down to find "Grok Integration" section
+
+### "No text selected" error
+1. First select/highlight some code in your editor
+2. Then run "Ask Grok about Selected Code"
+
+### Still not working?
+1. Press `Ctrl+Shift+P` → "Check License Status"
+2. Extension comes with demo license pre-installed
+3. Restart VS Code
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- None currently reported
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.2
+- Added installation instructions
+- Added LICENSE file
+- Added repository information
+- Updated documentation
 
-### 1.0.0
+### 0.0.1
+- Initial release with basic Grok integration
+- Command to ask Grok about selected code
+- Configuration for xAI API key
 
-Initial release of ...
+## Contributing
 
-### 1.0.1
+Found a bug or want to contribute? Visit our [GitHub repository](https://github.com/ndestates/vscode-grok4).
 
-Fixed issue #.
+## License
 
-### 1.1.0
+This extension is licensed under the [MIT License](LICENSE).
 
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+**Enjoy using Grok Integration!**
