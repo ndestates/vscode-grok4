@@ -9,6 +9,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 ### Changed
 - Preparing for next development cycle
 
+## [1.0.6] - 2025-07-13
+
+### Changed
+- **Performance Optimization**: Implemented webpack bundling for dramatically improved performance
+- **Package Size Reduction**: Reduced extension size from 638KB (595 files) to 46KB (6 files) - 93% smaller
+- **Faster Loading**: Bundled all dependencies into single optimized file for faster extension startup
+- **Improved .vscodeignore**: Enhanced file exclusion patterns to minimize package size
+- **Grok-4 Model**: Continued using latest Grok-4 model for optimal AI responses
+
+### Technical
+- Added webpack configuration for production bundling
+- Updated build scripts for optimized packaging
+- Enhanced development workflow with DDEV integration
+
+## [1.0.5] - 2025-07-13
+
+### Changed
+- **Model Update**: Updated to use Grok-4 model for improved performance and responses
+- **Performance Optimizations**: Reduced timeout values and optimized API calls for faster responses
+- **Enhanced Error Handling**: Improved connection testing and error reporting
+
 ## [1.0.4] - 2025-07-13
 
 ### Fixed

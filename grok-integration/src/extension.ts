@@ -145,7 +145,7 @@ async function testGrokConnection(apiKey: string): Promise<{success: boolean, er
 
     // Test with a very simple request
     const response = await openai.chat.completions.create({
-      model: 'grok-beta',  // Use grok-beta instead of grok-3-beta for faster response
+      model: 'grok-4',  // Use Grok-4 model
       messages: [{ role: 'user', content: 'Hi' }],
       max_tokens: 3,
       temperature: 0.1
@@ -429,7 +429,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 
     // Call Grok API with optimized settings
     const response = await openai.chat.completions.create({
-      model: 'grok-beta',  // Use grok-beta for faster response
+      model: 'grok-4',  // Use Grok-4 model
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage }
@@ -618,7 +618,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Call Grok API with streaming and optimized settings
       const response = await openai.chat.completions.create({
-        model: 'grok-beta',  // Use grok-beta for better performance
+        model: 'grok-4',  // Use Grok-4 model
         messages,
         max_tokens: 1500,    // Reduced for faster response
         temperature: 0.5,    // More focused responses

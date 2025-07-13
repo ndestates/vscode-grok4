@@ -1,11 +1,65 @@
+# VS Code files
 .vscode/**
 .vscode-test/**
+**/.vscode-test.*
+
+# Source files (only include compiled JavaScript)
 src/**
+**/*.ts
+**/*.map
+
+# Build and config files
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/eslint.config.mjs
-**/*.map
-**/*.ts
-**/.vscode-test.*
+webpack.config.js
+.eslintrc.json
+
+# Dependencies and cache
+node_modules/**
+.nyc_output/**
+coverage/**
+**/.git/**
+
+# Documentation and development files
+README.md
+CHANGELOG.md
+**/*.md
+!package.json
+
+# Test files
+test/**
+**/test/**
+**/*.test.js
+**/*.test.ts
+
+# Development dependencies
+.devcontainer/**
+.github/**
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+**/*.swp
+**/*.swo
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
