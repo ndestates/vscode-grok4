@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.0.6",
+  "version": "1.0.10",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -23,79 +23,89 @@
     "commands": [
       {
         "command": "grok-integration.askGrok",
-        "title": "Ask Grok about Selected Code"
+        "title": "🤖 Grok: Ask About Selected Code",
+        "description": "Get AI-powered insights about your selected code - explanations, reviews, optimizations and more"
       },
       {
         "command": "grok-integration.askGrokInline",
-        "title": "Ask Grok (Inline Chat)"
+        "title": "💬 Grok: Open Chat (Ctrl+Shift+G)",
+        "description": "Start a conversation with Grok AI in the chat panel to get coding help and assistance"
       },
       {
         "command": "grok-integration.editWithGrok",
-        "title": "Edit with Grok"
+        "title": "✏️ Grok: Edit Code (Ctrl+Shift+E)",
+        "description": "Use Grok AI to refactor, improve, or modify your selected code with intelligent suggestions"
       },
       {
         "command": "grok-integration.explainCode",
-        "title": "Explain Code with Grok"
+        "title": "📖 Grok: Explain Selected Code",
+        "description": "Get a detailed explanation of what your selected code does and how it works"
       },
       {
         "command": "grok-integration.reviewCode",
-        "title": "Review Code with Grok"
+        "title": "🔍 Grok: Review Selected Code",
+        "description": "Get code quality analysis with suggestions for improvements, best practices, and potential issues"
       },
       {
         "command": "grok-integration.testConnection",
-        "title": "Test Grok API Connection"
+        "title": "🔗 Grok: Test API Connection",
+        "description": "Verify that your xAI API key is working and Grok AI is accessible"
       },
       {
         "command": "grok-integration.enterLicenseKey",
-        "title": "Enter License Key"
+        "title": "🔑 Grok: Enter License Key",
+        "description": "Enter your Grok Integration license key to activate the extension"
       },
       {
         "command": "grok-integration.checkLicense",
-        "title": "Check License Status"
+        "title": "✅ Grok: Check License Status",
+        "description": "Verify your current license status and validity"
       },
       {
         "command": "grok-integration.purchaseLicense",
-        "title": "Purchase License"
+        "title": "💳 Grok: Purchase License",
+        "description": "Get information about purchasing a full license or reset to demo key"
       },
       {
         "command": "grok-integration.debugTest",
-        "title": "Debug Test - Check Extension"
-      },
-      {
-        "command": "grok-integration.debugTest",
-        "title": "Debug Test (Check Extension)"
+        "title": "🔧 Grok: Debug Extension",
+        "description": "Test extension functionality and troubleshoot any issues"
       }
     ],
     "chatParticipants": [
       {
         "id": "grok-integration.grok",
         "name": "grok",
-        "description": "Ask Grok AI questions about your code",
+        "description": "🤖 Grok AI - Your intelligent coding assistant for explanations, reviews, debugging, and optimization",
         "isSticky": true,
         "commands": [
           {
             "name": "explain",
-            "description": "Explain code in detail"
+            "description": "📖 Get detailed explanations of code functionality, algorithms, and concepts"
           },
           {
             "name": "review",
-            "description": "Review code quality and suggest improvements"
+            "description": "🔍 Comprehensive code review with quality analysis, best practices, and improvement suggestions"
           },
           {
             "name": "debug",
-            "description": "Help debug issues and find bugs"
+            "description": "🐛 Expert debugging assistance to identify issues, bugs, and provide solutions"
           },
           {
             "name": "refactor",
-            "description": "Suggest code refactoring improvements"
+            "description": "♻️ Smart refactoring suggestions to improve code structure, readability, and maintainability"
           },
           {
             "name": "test",
-            "description": "Generate unit tests for code"
+            "description": "🧪 Generate comprehensive unit tests with edge cases and testing best practices"
           },
           {
             "name": "optimize",
-            "description": "Suggest performance optimizations"
+            "description": "⚡ Performance optimization recommendations to improve speed and efficiency"
+          },
+          {
+            "name": "security",
+            "description": "🔒 Security analysis to detect vulnerabilities, attack vectors, and safety improvements"
           }
         ]
       }
@@ -129,19 +139,21 @@
       }
     ],
     "configuration": {
-      "title": "Grok Integration",
+      "title": "Grok Integration Settings",
       "properties": {
         "grokIntegration.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your xAI API key for accessing Grok",
-          "scope": "application"
+          "description": "🔑 Your xAI API key for accessing Grok AI (get yours at https://platform.x.ai/)",
+          "scope": "application",
+          "markdownDescription": "Your xAI API key for accessing Grok AI. **Get your API key:** [platform.x.ai](https://platform.x.ai/)"
         },
         "grokIntegration.licenseKey": {
           "type": "string",
           "default": "GI-DEMO1234-ABCD5678-EFGH9012",
-          "description": "Your Grok Integration license key (Demo key included)",
-          "scope": "application"
+          "description": "📄 Your Grok Integration license key (demo key included for trial use)",
+          "scope": "application",
+          "markdownDescription": "Your Grok Integration license key. **Demo key included** for trial use. Contact support for full license."
         }
       }
     }

@@ -145,7 +145,7 @@ async function testGrokConnection(apiKey: string): Promise<{success: boolean, er
 
     // Test with a very simple request
     const response = await openai.chat.completions.create({
-      model: 'grok-4',  // Use Grok-4 model
+      model: 'grok-4-0709',  // Use the correct Grok model name
       messages: [{ role: 'user', content: 'Hi' }],
       max_tokens: 3,
       temperature: 0.1
@@ -429,13 +429,13 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 
     // Call Grok API with optimized settings
     const response = await openai.chat.completions.create({
-      model: 'grok-4',  // Use Grok-4 model
+      model: 'grok-4-0709',  // Use the correct Grok model name
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage }
       ],
-      max_tokens: 1500,  // Reduced from 2000 for faster response
-      temperature: 0.5   // Reduced for more focused responses
+      max_tokens: 3000,  // Increased for more complete responses
+      temperature: 0.7   // Balanced for creative yet focused responses
     });
 
     const grokResponse = response.choices[0]?.message?.content || 'No response received from Grok.';
@@ -541,13 +541,16 @@ export function activate(context: vscode.ExtensionContext) {
       case 'optimize':
         systemPrompt = 'You are Grok, a performance optimization expert. Analyze the code for performance bottlenecks and suggest optimizations.';
         break;
+      case 'security':
+        systemPrompt = 'You are Grok, a security expert. Analyze the code for security vulnerabilities, potential attack vectors, and suggest security improvements. Focus on common security issues like injection attacks, authentication flaws, data exposure, and insecure configurations.';
+        break;
     }
 
     // Initialize OpenAI client with xAI base URL and timeout
     const openai = new OpenAI({
       apiKey,
       baseURL: 'https://api.x.ai/v1',
-      timeout: 60000  // 60 second timeout
+      timeout: 90000  // 90 second timeout for longer responses
     });
 
     try {
@@ -618,14 +621,16 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Call Grok API with streaming and optimized settings
       const response = await openai.chat.completions.create({
-        model: 'grok-4',  // Use Grok-4 model
+        model: 'grok-4-0709',  // Use the correct Grok model name
         messages,
-        max_tokens: 1500,    // Reduced for faster response
-        temperature: 0.5,    // More focused responses
+        max_tokens: 3000,    // Increased for more complete responses
+        temperature: 0.7,    // Balanced for creative yet focused responses
         stream: true
       });
 
       let responseReceived = false;
+      let fullResponse = '';
+      
       // Stream the response
       for await (const chunk of response) {
         const content = chunk.choices[0]?.delta?.content;
@@ -634,6 +639,7 @@ export function activate(context: vscode.ExtensionContext) {
             stream.progress('📝 Receiving response...');
             responseReceived = true;
           }
+          fullResponse += content;
           stream.markdown(content);
         }
         
@@ -642,6 +648,11 @@ export function activate(context: vscode.ExtensionContext) {
           stream.markdown('\n\n⏹️ *Response cancelled by user*');
           break;
         }
+      }
+
+      // Check if response was truncated and notify user
+      if (fullResponse.length > 2900) {
+        stream.markdown('\n\n💡 *Response may have been truncated due to length limits. For longer responses, try asking more specific questions.*');
       }
 
       if (!responseReceived) {

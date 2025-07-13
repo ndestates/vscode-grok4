@@ -9,6 +9,43 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 ### Changed
 - Preparing for next development cycle
 
+## [1.0.10] - 2025-07-13
+
+### Improved
+- **Enhanced Command Descriptions**: Made all Command Palette entries more comprehensive and user-friendly
+- **Better Chat Participant UI**: Added emoji icons and detailed descriptions for all chat commands
+- **Improved Settings**: Enhanced configuration descriptions with helpful links and clearer explanations
+- **User Experience**: Added keyboard shortcuts in command titles and more descriptive help text
+
+### Added
+- **Comprehensive Command Titles**: All commands now include emojis and detailed descriptions
+- **Keyboard Shortcut Hints**: Command titles now show associated keyboard shortcuts
+- **Helpful Links**: Settings now include direct links to get API keys and support
+
+## [1.0.9] - 2025-07-13
+
+### Fixed
+- **Response Cutoff Issue**: Increased max_tokens from 1500 to 3000 to prevent premature response truncation
+- **Temperature Optimization**: Adjusted temperature from 0.5 to 0.7 for better response quality and completeness
+- **Timeout Handling**: Extended timeout from 60s to 90s for longer, more comprehensive responses
+- **Response Tracking**: Added full response tracking to detect and notify users of truncated responses
+
+### Improved
+- **Better User Feedback**: Added notification when responses may be truncated due to length limits
+- **Enhanced Streaming**: Improved streaming response handling for more reliable content delivery
+
+## [1.0.8] - 2025-07-13
+
+### Added
+- **Security Command**: Added new `/security` command to the chat participant for security analysis and vulnerability detection
+- **Enhanced Chat Participant**: Extended command set to include security flaw detection and improvement suggestions
+
+## [1.0.7] - 2025-07-13
+
+### Fixed
+- **Model Name Correction**: Updated to use correct Grok model name `grok-4-0709` instead of incorrect model references
+- **API Connection**: Fixed 404 errors caused by incorrect model name usage
+
 ## [1.0.6] - 2025-07-13
 
 ### Changed
