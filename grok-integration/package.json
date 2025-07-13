@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.0.4-dev",
+  "version": "1.0.5",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -56,6 +56,14 @@
       {
         "command": "grok-integration.purchaseLicense",
         "title": "Purchase License"
+      },
+      {
+        "command": "grok-integration.debugTest",
+        "title": "Debug Test - Check Extension"
+      },
+      {
+        "command": "grok-integration.debugTest",
+        "title": "Debug Test (Check Extension)"
       }
     ],
     "chatParticipants": [

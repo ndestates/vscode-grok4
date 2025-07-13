@@ -6,11 +6,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 
 ## [Unreleased]
 
+### Changed
+- Preparing for next development cycle
+
+## [1.0.4] - 2025-07-13
+
+### Fixed
+- **Grok Panel Issue**: Fixed missing responses when explaining or reviewing selected code
+- **User Experience**: Replaced chat-only interface with dedicated explanation panel
+- **Real-time Status**: Added comprehensive status feedback panel with live updates
+
 ### Added
-- Development branch for version 1.0.4
+- **Dedicated Grok Panel**: New webview panel for code explanation and review with real-time status
+- **Status Indicators**: Live progress updates ("Connecting...", "Grok is thinking...", "Receiving response...")
+- **Enhanced UI**: Beautiful styled panel with syntax highlighting and markdown rendering
+- **Error Handling**: Detailed error messages with troubleshooting guidance in dedicated panel
+- **Multiple Actions**: Support for explain, review, and custom analyze requests
 
 ### Changed
-- Improved documentation with development build instructions
+- **Explain Code Command**: Now opens dedicated panel instead of redirecting to chat
+- **Review Code Command**: Now opens dedicated panel instead of redirecting to chat
+- **Ask Grok Command**: Improved with custom user prompts and dedicated response panel
+- **Better Visual Feedback**: Enhanced loading states and response formatting
 
 ## [1.0.3] - 2025-07-13
 

@@ -139,14 +139,15 @@ async function testGrokConnection(apiKey: string): Promise<{success: boolean, er
   try {
     const openai = new OpenAI({
       apiKey,
-      baseURL: 'https://api.x.ai/v1'
+      baseURL: 'https://api.x.ai/v1',
+      timeout: 30000  // 30 second timeout
     });
 
-    // Test with a simple request
+    // Test with a very simple request
     const response = await openai.chat.completions.create({
-      model: 'grok-3-beta',
-      messages: [{ role: 'user', content: 'Hello' }],
-      max_tokens: 5,
+      model: 'grok-beta',  // Use grok-beta instead of grok-3-beta for faster response
+      messages: [{ role: 'user', content: 'Hi' }],
+      max_tokens: 3,
       temperature: 0.1
     });
 
@@ -159,6 +160,342 @@ async function testGrokConnection(apiKey: string): Promise<{success: boolean, er
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
   }
+}
+
+// Show Grok response panel with real-time status
+async function showGrokPanel(title: string, code: string, language: string, action: string): Promise<void> {
+  console.log('Grok Extension: showGrokPanel called with:', { title, language, action, codeLength: code.length });
+  
+  // Get API key from settings
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  
+  console.log('Grok Extension: API key present:', !!apiKey);
+  
+  if (!apiKey) {
+    console.log('Grok Extension: No API key found, showing error dialog');
+    const userAction = await vscode.window.showErrorMessage(
+      '🔑 xAI API Key Required: Please set your xAI API key to use Grok.',
+      'Open Settings',
+      'How to Get API Key'
+    );
+    
+    if (userAction === 'Open Settings') {
+      vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+    } else if (userAction === 'How to Get API Key') {
+      vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
+    }
+    return;
+  }
+
+  console.log('Grok Extension: Creating webview panel');
+  
+  // Create webview panel
+  const panel = vscode.window.createWebviewPanel(
+    'grokResponse',
+    `🤖 Grok: ${title}`,
+    vscode.ViewColumn.Beside,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true
+    }
+  );
+
+  console.log('Grok Extension: Setting HTML content');
+  
+  // Set initial loading HTML
+  panel.webview.html = getLoadingHTML(title, code, language, action);
+
+  console.log('Grok Extension: Starting processGrokRequest');
+  
+  // Process request in background with timeout
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timed out after 2 minutes')), 120000)
+  );
+  
+  Promise.race([
+    processGrokRequest(panel, code, language, action, apiKey),
+    timeoutPromise
+  ]).catch(error => {
+    console.error('Grok Extension: Request failed or timed out:', error);
+    panel.webview.postMessage({ 
+      type: 'error', 
+      text: `Request failed: ${error.message}. Try again with shorter code or check your connection.` 
+    });
+  });
+}
+
+function getLoadingHTML(title: string, code: string, language: string, action: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Grok ${title}</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                line-height: 1.6;
+                margin: 0;
+                padding: 20px;
+                background: var(--vscode-editor-background);
+                color: var(--vscode-editor-foreground);
+            }
+            .header {
+                display: flex;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid var(--vscode-panel-border);
+            }
+            .icon {
+                font-size: 24px;
+                margin-right: 10px;
+            }
+            .title {
+                font-size: 18px;
+                font-weight: 600;
+            }
+            .status {
+                padding: 15px;
+                margin: 10px 0;
+                border-radius: 5px;
+                background: var(--vscode-textBlockQuote-background);
+                border-left: 4px solid var(--vscode-textLink-foreground);
+            }
+            .code-block {
+                background: var(--vscode-textCodeBlock-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 5px;
+                padding: 15px;
+                margin: 15px 0;
+                font-family: 'Courier New', Consolas, monospace;
+                overflow-x: auto;
+            }
+            .language-label {
+                background: var(--vscode-badge-background);
+                color: var(--vscode-badge-foreground);
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 12px;
+                margin-bottom: 10px;
+                display: inline-block;
+            }
+            .spinner {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                border: 3px solid var(--vscode-panel-border);
+                border-radius: 50%;
+                border-top-color: var(--vscode-textLink-foreground);
+                animation: spin 1s ease-in-out infinite;
+                margin-right: 10px;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            .response {
+                margin-top: 20px;
+                padding: 15px;
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 5px;
+                min-height: 100px;
+            }
+            .error {
+                color: var(--vscode-errorForeground);
+                background: var(--vscode-inputValidation-errorBackground);
+                border-left-color: var(--vscode-errorForeground);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <span class="icon">🤖</span>
+            <span class="title">Grok AI - ${title}</span>
+        </div>
+        
+        <div class="status" id="status">
+            <div class="spinner"></div>
+            <strong>🔍 Initializing Grok AI...</strong>
+            <div>Preparing your ${action} request...</div>
+        </div>
+        
+        <div>
+            <h3>📝 Selected Code:</h3>
+            <div class="language-label">${language}</div>
+            <div class="code-block">${escapeHtml(code)}</div>
+        </div>
+        
+        <div class="response" id="response" style="display: none;">
+            <h3>🧠 Grok's Analysis:</h3>
+            <div id="responseContent"></div>
+        </div>
+
+        <script>
+            window.addEventListener('message', event => {
+                const message = event.data;
+                const statusDiv = document.getElementById('status');
+                const responseDiv = document.getElementById('response');
+                const responseContent = document.getElementById('responseContent');
+                
+                switch(message.type) {
+                    case 'status':
+                        statusDiv.innerHTML = '<div class="spinner"></div><strong>' + message.text + '</strong>';
+                        break;
+                    case 'response':
+                        responseDiv.style.display = 'block';
+                        responseContent.innerHTML = message.content;
+                        statusDiv.style.display = 'none';
+                        break;
+                    case 'error':
+                        statusDiv.className = 'status error';
+                        statusDiv.innerHTML = '<strong>❌ Error:</strong> ' + message.text;
+                        break;
+                }
+            });
+        </script>
+    </body>
+    </html>
+  `;
+}
+
+function escapeHtml(text: string): string {
+  const map: { [key: string]: string } = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
+
+async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<void> {
+  console.log('Grok Extension: processGrokRequest started with:', { language, action, codeLength: code.length });
+  
+  try {
+    console.log('Grok Extension: Updating status to connecting...');
+    // Update status
+    panel.webview.postMessage({ type: 'status', text: '🔍 Connecting to Grok API...' });
+    
+    console.log('Grok Extension: Testing connection...');
+    // Test connection first
+    const connectionTest = await testGrokConnection(apiKey);
+    console.log('Grok Extension: Connection test result:', connectionTest);
+    if (!connectionTest.success) {
+      console.log('Grok Extension: Connection failed:', connectionTest.error);
+      panel.webview.postMessage({ 
+        type: 'error', 
+        text: `Connection failed: ${connectionTest.error}. Please check your API key and internet connection.` 
+      });
+      return;
+    }
+
+    console.log('Grok Extension: Connection successful, updating status...');
+    panel.webview.postMessage({ type: 'status', text: '✅ Connected! Asking Grok...' });
+
+    console.log('Grok Extension: Initializing OpenAI client...');
+    // Initialize OpenAI client with timeout
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: 'https://api.x.ai/v1',
+      timeout: 60000  // 60 second timeout for actual requests
+    });
+
+    // Prepare system prompt based on action
+    let systemPrompt = '';
+    let userMessage = '';
+    switch (action) {
+      case 'explain':
+        systemPrompt = 'You are Grok. Explain this code concisely but thoroughly. Focus on key concepts and functionality.';
+        userMessage = `Explain this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
+        break;
+      case 'review':
+        systemPrompt = 'You are Grok. Review this code for issues, improvements, and best practices. Be specific and constructive.';
+        userMessage = `Review this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
+        break;
+      case 'analyze':
+        systemPrompt = 'You are Grok. Analyze the provided code and provide helpful insights.';
+        userMessage = `${code}`;  // For analyze, the code contains the user's prompt and code
+        break;
+      default:
+        systemPrompt = 'You are Grok. Analyze this code and provide helpful insights.';
+        userMessage = `Analyze this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
+    }
+
+    panel.webview.postMessage({ type: 'status', text: '💭 Grok is thinking...' });
+
+    // Call Grok API with optimized settings
+    const response = await openai.chat.completions.create({
+      model: 'grok-beta',  // Use grok-beta for faster response
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 1500,  // Reduced from 2000 for faster response
+      temperature: 0.5   // Reduced for more focused responses
+    });
+
+    const grokResponse = response.choices[0]?.message?.content || 'No response received from Grok.';
+    
+    // Convert markdown to HTML for better display
+    const htmlResponse = convertMarkdownToHtml(grokResponse);
+    panel.webview.postMessage({ type: 'response', content: htmlResponse });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    let troubleshooting = 'Please verify your API key and try again.';
+    if (errorMessage.includes('401')) {
+      troubleshooting = 'Invalid API key. Please check your xAI API key in settings.';
+    } else if (errorMessage.includes('429')) {
+      troubleshooting = 'Rate limit exceeded. Please wait a moment and try again.';
+    } else if (errorMessage.includes('insufficient_quota')) {
+      troubleshooting = 'API quota exhausted. Please check your xAI account billing.';
+    }
+    
+    panel.webview.postMessage({ 
+      type: 'error', 
+      text: `${errorMessage}. ${troubleshooting}` 
+    });
+  }
+}
+
+function convertMarkdownToHtml(markdown: string): string {
+  // Basic markdown to HTML conversion for common patterns
+  let html = markdown;
+  
+  // Code blocks
+  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, 
+    '<div class="language-label">$1</div><div class="code-block">$2</div>');
+  
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code style="background: var(--vscode-textCodeBlock-background); padding: 2px 4px; border-radius: 3px;">$1</code>');
+  
+  // Bold text
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Italic text
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  // Headers
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  
+  // Line breaks
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  
+  // Wrap in paragraphs
+  html = '<p>' + html + '</p>';
+  
+  // Clean up empty paragraphs
+  html = html.replace(/<p><\/p>/g, '');
+  
+  return html;
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -206,10 +543,11 @@ export function activate(context: vscode.ExtensionContext) {
         break;
     }
 
-    // Initialize OpenAI client with xAI base URL
+    // Initialize OpenAI client with xAI base URL and timeout
     const openai = new OpenAI({
       apiKey,
-      baseURL: 'https://api.x.ai/v1'
+      baseURL: 'https://api.x.ai/v1',
+      timeout: 60000  // 60 second timeout
     });
 
     try {
@@ -278,12 +616,12 @@ export function activate(context: vscode.ExtensionContext) {
 
       stream.progress('💭 Grok is thinking...');
 
-      // Call Grok API with streaming
+      // Call Grok API with streaming and optimized settings
       const response = await openai.chat.completions.create({
-        model: 'grok-3-beta',
+        model: 'grok-beta',  // Use grok-beta for better performance
         messages,
-        max_tokens: 2000,
-        temperature: 0.7,
+        max_tokens: 1500,    // Reduced for faster response
+        temperature: 0.5,    // More focused responses
         stream: true
       });
 
@@ -448,25 +786,54 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register context menu items
   const explainCodeCommand = vscode.commands.registerCommand('grok-integration.explainCode', async () => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      return;
-    }
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) return;
-
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection).trim();
+    console.log('Grok Extension: explainCodeCommand triggered');
     
-    if (!selectedText) {
-      vscode.window.showErrorMessage('Please select code to explain.');
-      return;
-    }
+    try {
+      console.log('Grok Extension: Checking license status...');
+      // Check license first
+      const isLicensed = await checkLicenseStatus();
+      console.log('Grok Extension: License status:', isLicensed);
+      if (!isLicensed) {
+        console.log('Grok Extension: License validation failed');
+        vscode.window.showErrorMessage('❌ License validation failed. Please check your license.');
+        return;
+      }
+      
+      console.log('Grok Extension: Getting active editor...');
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        console.log('Grok Extension: No active editor found');
+        vscode.window.showErrorMessage('❌ No active editor found.');
+        return;
+      }
 
-    await vscode.commands.executeCommand('workbench.action.chat.open');
-    const prompt = `@grok /explain\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
-    await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', prompt);
+      console.log('Grok Extension: Getting selection...');
+      const selection = editor.selection;
+      const selectedText = editor.document.getText(selection).trim();
+      console.log('Grok Extension: Selected text length:', selectedText.length);
+      
+      if (!selectedText) {
+        console.log('Grok Extension: No text selected');
+        vscode.window.showErrorMessage('❌ Please select code to explain.');
+        return;
+      }
+
+      // Debug info
+      console.log('Grok Extension: Explaining code:', selectedText.substring(0, 100) + '...');
+      console.log('Grok Extension: Language ID:', editor.document.languageId);
+      
+      // Show immediate feedback
+      vscode.window.showInformationMessage('🔍 Starting code explanation...');
+      
+      // Create explanation panel
+      console.log('Grok Extension: Calling showGrokPanel...');
+      await showGrokPanel('Explain Code', selectedText, editor.document.languageId, 'explain');
+      console.log('Grok Extension: showGrokPanel completed');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Grok Extension Error in explainCodeCommand:', error);
+      vscode.window.showErrorMessage(`❌ Grok Explain Error: ${errorMessage}`);
+    }
   });
 
   const reviewCodeCommand = vscode.commands.registerCommand('grok-integration.reviewCode', async () => {
@@ -486,9 +853,8 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    await vscode.commands.executeCommand('workbench.action.chat.open');
-    const prompt = `@grok /review\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``;
-    await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', prompt);
+    // Create review panel
+    await showGrokPanel('Review Code', selectedText, editor.document.languageId, 'review');
   });
 
   // Original command for backward compatibility
@@ -496,24 +862,6 @@ export function activate(context: vscode.ExtensionContext) {
     // Check license first
     const isLicensed = await checkLicenseStatus();
     if (!isLicensed) {
-      return;
-    }
-
-    // Get API key from settings
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const apiKey = config.get<string>('apiKey');
-    if (!apiKey) {
-      const action = await vscode.window.showErrorMessage(
-        '🔑 xAI API Key Required: Please set your xAI API key to use Grok.',
-        'Open Settings',
-        'How to Get API Key'
-      );
-      
-      if (action === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-      } else if (action === 'How to Get API Key') {
-        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
-      }
       return;
     }
 
@@ -533,42 +881,13 @@ export function activate(context: vscode.ExtensionContext) {
     // Prompt user for question (or use a default)
     const userPrompt = await vscode.window.showInputBox({
       prompt: 'What do you want to ask Grok about this code?',
-      value: 'Explain this code:'
+      value: 'Explain this code',
+      placeHolder: 'e.g., Explain this code, Review for bugs, Optimize performance'
     });
     if (!userPrompt) return;
 
-    // Initialize OpenAI client with xAI base URL
-    const openai = new OpenAI({
-      apiKey,
-      baseURL: 'https://api.x.ai/v1'
-    });
-
-    try {
-      // Call Grok API (use 'grok-3-beta' or latest model)
-      const response = await openai.chat.completions.create({
-        model: 'grok-3-beta',  // Replace with desired model, e.g., 'grok-3-mini-beta'
-        messages: [
-          { role: 'system', content: 'You are a helpful coding assistant.' },
-          { role: 'user', content: `${userPrompt}\n\n${selectedText}` }
-        ],
-        max_tokens: 500,
-        temperature: 0.7
-      });
-
-      const grokResponse = response.choices[0]?.message?.content || 'No response received.';
-
-      // Display response in a webview panel
-      const panel = vscode.window.createWebviewPanel(
-        'grokResponse',
-        'Grok Response',
-        vscode.ViewColumn.Beside,
-        {}
-      );
-      panel.webview.html = `<h1>Grok's Response</h1><pre>${grokResponse}</pre>`;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Error calling Grok API: ${errorMessage}`);
-    }
+    // Use the new panel system
+    await showGrokPanel(userPrompt, `${userPrompt}\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``, editor.document.languageId, 'analyze');
   });
 
   // Test connection command
@@ -657,7 +976,45 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand);
+  // Debug test command
+  const debugTestCommand = vscode.commands.registerCommand('grok-integration.debugTest', async () => {
+    console.log('Grok Extension: Debug test command triggered');
+    vscode.window.showInformationMessage('🔧 Debug Test: Extension is active and responding!');
+    
+    // Test webview creation
+    try {
+      console.log('Grok Extension: Creating test webview panel...');
+      const panel = vscode.window.createWebviewPanel(
+        'grokDebugTest',
+        '🧪 Grok Debug Test',
+        vscode.ViewColumn.Beside,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true
+        }
+      );
+      
+      panel.webview.html = `
+        <!DOCTYPE html>
+        <html>
+        <head><title>Debug Test</title></head>
+        <body>
+          <h1>🧪 Grok Debug Test</h1>
+          <p>If you can see this panel, webview creation is working!</p>
+          <p>Time: ${new Date().toISOString()}</p>
+        </body>
+        </html>
+      `;
+      
+      console.log('Grok Extension: Test webview panel created successfully');
+      vscode.window.showInformationMessage('✅ Test webview panel created! Check for new panel.');
+    } catch (error) {
+      console.error('Grok Extension: Error creating test webview:', error);
+      vscode.window.showErrorMessage(`❌ Webview creation failed: ${error}`);
+    }
+  });
+
+  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand, debugTestCommand);
 }
 
 export function deactivate() {}
