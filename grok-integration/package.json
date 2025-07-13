@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -40,6 +40,10 @@
       {
         "command": "grok-integration.reviewCode",
         "title": "Review Code with Grok"
+      },
+      {
+        "command": "grok-integration.testConnection",
+        "title": "Test Grok API Connection"
       },
       {
         "command": "grok-integration.enterLicenseKey",

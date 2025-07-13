@@ -9,6 +9,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 ### Changed
 - Improved documentation with development build instructions
 
+## [1.0.3] - 2025-07-13
+
+### Fixed
+- **No Response Issue**: Fixed missing responses from Grok API with enhanced error handling
+- **Connection Testing**: Added automatic connection verification before API calls
+- **Status Feedback**: Improved user feedback with detailed progress messages during API calls
+
+### Added
+- **Test Connection Command**: New command to manually test Grok API connectivity
+- **Enhanced Progress Messages**: Real-time status updates ("Connecting...", "Grok is thinking...", "Receiving response...")
+- **Detailed Error Messages**: Specific troubleshooting guidance for different API error types (401, 429, quota, network)
+- **Connection Verification**: Automatic API connection test before processing requests
+- **Response Validation**: Detection and handling of empty or missing API responses
+
+### Changed
+- **Better Error Handling**: Enhanced error messages with actionable troubleshooting steps
+- **Improved User Experience**: Clearer status indicators and progress reporting during API calls
+- **Timeout Handling**: Better handling of network timeouts and connectivity issues
+
 ## [1.0.2] - 2025-07-13
 
 ### Fixed
@@ -22,6 +41,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 - Enhanced license prompt flow with "Use Demo Key" option for failed validations
 - Updated all demo key references to use correctly generated key
 - Improved error messages for license validation failures
+
+### Added
+- Enhanced `.gitignore` files to properly exclude `node_modules`, environment files, and build artifacts
+- Comprehensive patterns for VS Code extension development (TypeScript cache, logs, OS files)
+- Root-level `.gitignore` for workspace-wide file exclusions
 
 ## [1.0.1] - 2025-07-13
 

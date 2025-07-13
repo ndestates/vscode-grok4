@@ -134,6 +134,33 @@ async function promptForLicenseKey(): Promise<void> {
   }
 }
 
+// Test connection to Grok API
+async function testGrokConnection(apiKey: string): Promise<{success: boolean, error?: string}> {
+  try {
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: 'https://api.x.ai/v1'
+    });
+
+    // Test with a simple request
+    const response = await openai.chat.completions.create({
+      model: 'grok-3-beta',
+      messages: [{ role: 'user', content: 'Hello' }],
+      max_tokens: 5,
+      temperature: 0.1
+    });
+
+    if (response.choices && response.choices.length > 0) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'No response from Grok API' };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Register the chat participant
   const chatParticipant = vscode.chat.createChatParticipant('grok-integration.grok', async (request, context, stream, token) => {
@@ -186,7 +213,16 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     try {
-      stream.progress('🤖 Asking Grok...');
+      stream.progress('🔍 Connecting to Grok API...');
+      
+      // Test connection first
+      const connectionTest = await testGrokConnection(apiKey);
+      if (!connectionTest.success) {
+        stream.markdown(`❌ **Connection Failed**: ${connectionTest.error}\n\n**Troubleshooting:**\n- Check your API key is correct\n- Verify you have internet connection\n- Ensure your API key has sufficient credits\n\n[Get API Key](https://platform.x.ai/) | [Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)`);
+        return;
+      }
+
+      stream.progress('✅ Connected! Asking Grok...');
       
       // Get workspace context if available
       let workspaceContext = '';
@@ -240,6 +276,8 @@ export function activate(context: vscode.ExtensionContext) {
       const finalPrompt = userPrompt + workspaceContext;
       messages.push({ role: 'user', content: finalPrompt });
 
+      stream.progress('💭 Grok is thinking...');
+
       // Call Grok API with streaming
       const response = await openai.chat.completions.create({
         model: 'grok-3-beta',
@@ -249,21 +287,46 @@ export function activate(context: vscode.ExtensionContext) {
         stream: true
       });
 
+      let responseReceived = false;
       // Stream the response
       for await (const chunk of response) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          if (!responseReceived) {
+            stream.progress('📝 Receiving response...');
+            responseReceived = true;
+          }
           stream.markdown(content);
         }
         
         // Check for cancellation
         if (token.isCancellationRequested) {
+          stream.markdown('\n\n⏹️ *Response cancelled by user*');
           break;
         }
       }
+
+      if (!responseReceived) {
+        stream.markdown('⚠️ **No response received from Grok**\n\nThis might indicate:\n- API quota exhausted\n- Network connectivity issues\n- Service temporarily unavailable\n\nPlease try again in a moment.');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      stream.markdown(`❌ **Error**: ${errorMessage}\n\nPlease check your API key and try again.`);
+      
+      // Enhanced error handling with specific messages
+      let troubleshooting = '';
+      if (errorMessage.includes('401')) {
+        troubleshooting = '\n\n**Troubleshooting:** Invalid API key. Please check your xAI API key in settings.';
+      } else if (errorMessage.includes('429')) {
+        troubleshooting = '\n\n**Troubleshooting:** Rate limit exceeded. Please wait a moment and try again.';
+      } else if (errorMessage.includes('insufficient_quota')) {
+        troubleshooting = '\n\n**Troubleshooting:** API quota exhausted. Please check your xAI account billing.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+        troubleshooting = '\n\n**Troubleshooting:** Network connection issue. Please check your internet connection.';
+      } else {
+        troubleshooting = '\n\n**Troubleshooting:** Please verify your API key and try again.';
+      }
+      
+      stream.markdown(`❌ **Error**: ${errorMessage}${troubleshooting}\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D) | [Get API Key](https://platform.x.ai/)`);
     }
   });
 
@@ -508,6 +571,55 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // Test connection command
+  const testConnectionCommand = vscode.commands.registerCommand('grok-integration.testConnection', async () => {
+    const config = vscode.workspace.getConfiguration('grokIntegration');
+    const apiKey = config.get<string>('apiKey');
+    
+    if (!apiKey) {
+      const action = await vscode.window.showErrorMessage(
+        '🔑 API Key Required: Please set your xAI API key first.',
+        'Open Settings',
+        'Get API Key'
+      );
+      
+      if (action === 'Open Settings') {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+      } else if (action === 'Get API Key') {
+        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
+      }
+      return;
+    }
+
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Testing Grok API Connection...",
+      cancellable: false
+    }, async (progress) => {
+      progress.report({ increment: 20, message: "Connecting..." });
+      
+      const result = await testGrokConnection(apiKey);
+      
+      progress.report({ increment: 80, message: "Verifying response..." });
+      
+      if (result.success) {
+        vscode.window.showInformationMessage('✅ Grok API Connection Successful! Ready to use @grok in chat.');
+      } else {
+        const action = await vscode.window.showErrorMessage(
+          `❌ Connection Failed: ${result.error}`,
+          'Check API Key',
+          'Get Help'
+        );
+        
+        if (action === 'Check API Key') {
+          vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+        } else if (action === 'Get Help') {
+          vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/docs'));
+        }
+      }
+    });
+  });
+
   // License management commands
   const enterLicenseCommand = vscode.commands.registerCommand('grok-integration.enterLicenseKey', async () => {
     await promptForLicenseKey();
@@ -545,7 +657,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(chatParticipant, disposable, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand);
+  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand);
 }
 
 export function deactivate() {}
