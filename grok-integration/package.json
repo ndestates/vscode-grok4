@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -15,7 +15,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onChatParticipant:grok-integration.grok"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -86,6 +88,34 @@
         ]
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "grok-integration.explainCode",
+          "group": "9_grok@1"
+        },
+        {
+          "when": "editorHasSelection",
+          "command": "grok-integration.reviewCode",
+          "group": "9_grok@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "grok-integration.askGrokInline",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "grok-integration.editWithGrok",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorTextFocus && editorHasSelection"
+      }
+    ],
     "configuration": {
       "title": "Grok Integration",
       "properties": {
@@ -102,58 +132,7 @@
           "scope": "application"
         }
       }
-    },
-    "menus": {
-      "editor/context": [
-        {
-          "command": "grok-integration.explainCode",
-          "when": "editorHasSelection",
-          "group": "grok@1"
-        },
-        {
-          "command": "grok-integration.reviewCode", 
-          "when": "editorHasSelection",
-          "group": "grok@2"
-        },
-        {
-          "command": "grok-integration.editWithGrok",
-          "when": "editorHasSelection",
-          "group": "grok@3"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "grok-integration.askGrokInline",
-          "when": "editorIsOpen"
-        },
-        {
-          "command": "grok-integration.editWithGrok", 
-          "when": "editorIsOpen"
-        },
-        {
-          "command": "grok-integration.explainCode",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "grok-integration.reviewCode",
-          "when": "editorHasSelection"
-        }
-      ]
-    },
-    "keybindings": [
-      {
-        "command": "grok-integration.askGrokInline",
-        "key": "ctrl+shift+g",
-        "mac": "cmd+shift+g",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "grok-integration.editWithGrok",
-        "key": "ctrl+shift+e",
-        "mac": "cmd+shift+e", 
-        "when": "editorHasSelection"
-      }
-    ]
+    }
   },
   "dependencies": {
     "openai": "^5.9.0"

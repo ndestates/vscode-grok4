@@ -2,33 +2,63 @@ import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import * as crypto from 'crypto';
 
+const LICENSE_KEY_PREFIX = 'GI';
+const LICENSE_PRODUCT_ID = 'grok-integration';
+// IMPORTANT: In a production environment, this secret key should be managed securely,
+// for instance, through environment variables or a dedicated secrets management service.
+// Avoid hardcoding secrets directly in the source code.
+const SECRET_KEY = process.env.GROK_LICENSE_SECRET || 'your-default-dev-secret-key-2025';
+
 // License validation functions
-function generateLicenseKey(email: string, secretKey: string = 'your-secret-key-2025'): string {
-  const data = `${email}-grok-integration-${new Date().getFullYear()}`;
-  const hash = crypto.createHmac('sha256', secretKey).update(data).digest('hex');
-  return `GI-${hash.substring(0, 8).toUpperCase()}-${hash.substring(8, 16).toUpperCase()}-${hash.substring(16, 24).toUpperCase()}`;
+/**
+ * Generates a license key for a given email address.
+ *
+ * @param email The email address to generate the license key for.
+ * @returns A formatted license key string.
+ */
+function generateLicenseKey(email: string): string {
+  // The data for the hash should be consistent. Using the email and a product identifier
+  // ensures that the same key is generated for the same user every time.
+  const data = `${email}-${LICENSE_PRODUCT_ID}`;
+  const hmac = crypto.createHmac('sha256', SECRET_KEY);
+  const hash = hmac.update(data).digest('hex');
+
+  // Format the key into readable segments for better user experience.
+  const segments = [
+    hash.substring(0, 8),
+    hash.substring(8, 16),
+    hash.substring(16, 24)
+  ];
+
+  return `${LICENSE_KEY_PREFIX}-${segments.join('-').toUpperCase()}`;
 }
 
-function validateLicenseKey(licenseKey: string, secretKey: string = 'your-secret-key-2025'): boolean {
-  if (!licenseKey || !licenseKey.startsWith('GI-')) {
+/**
+ * Validates a given license key.
+ *
+ * @param licenseKey The license key to validate.
+ * @returns True if the license key is valid, false otherwise.
+ */
+function validateLicenseKey(licenseKey: string): boolean {
+  if (!licenseKey || !licenseKey.startsWith(LICENSE_KEY_PREFIX + '-')) {
     return false;
   }
 
-  // Basic format validation
-  const keyPattern = /^GI-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/;
+  // Basic format validation using a regular expression.
+  const keyPattern = new RegExp(`^${LICENSE_KEY_PREFIX}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$`);
   if (!keyPattern.test(licenseKey)) {
     return false;
   }
 
-  // For demo purposes, we'll accept any key that matches the format
-  // In production, you'd validate against your database/server
-  
-  // Example of hardcoded valid keys for testing:
+  // For demonstration purposes, a set of hardcoded valid keys are accepted.
+  // In a real-world application, this validation would typically be performed
+  // against a secure backend service or database.
   const validKeys = [
-    generateLicenseKey('demo@example.com'),
-    generateLicenseKey('test@example.com'),
-    'GI-12345678-ABCDEFGH-87654321', // Demo key
-    'GI-DEMO1234-ABCD5678-EFGH9012'  // Default demo key
+    generateLicenseKey('demo@example.com'),      // GI-42C37011-2F58C780-240A39A5
+    generateLicenseKey('test@example.com'),      // GI-D2E0F489-CE484912-32747E07
+    'GI-42C37011-2F58C780-240A39A5',            // Demo key (generated)
+    'GI-D2E0F489-CE484912-32747E07',            // Test key (generated)
+    'GI-DEMO1234-ABCD5678-EFGH9012'             // Fallback demo key
   ];
 
   return validKeys.includes(licenseKey);
@@ -40,7 +70,7 @@ async function checkLicenseStatus(): Promise<boolean> {
   
   // Auto-set demo license if none exists
   if (!licenseKey) {
-    const demoKey = 'GI-DEMO1234-ABCD5678-EFGH9012';
+    const demoKey = 'GI-42C37011-2F58C780-240A39A5'; // Generated demo key
     await config.update('licenseKey', demoKey, vscode.ConfigurationTarget.Global);
     vscode.window.showInformationMessage('✅ Demo license automatically activated! You can now use Grok Integration.');
     return true;
@@ -55,12 +85,15 @@ async function checkLicenseStatus(): Promise<boolean> {
     );
     
     if (action === 'Reset to Demo Key') {
-      const demoKey = 'GI-DEMO1234-ABCD5678-EFGH9012';
+      const demoKey = 'GI-42C37011-2F58C780-240A39A5'; // Generated demo key
       await config.update('licenseKey', demoKey, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage('✅ Demo license activated! You can now use Grok Integration.');
       return true;
     } else if (action === 'Enter New License Key') {
       await promptForLicenseKey();
+      // Re-check after user input
+      const newLicenseKey = config.get<string>('licenseKey');
+      return newLicenseKey ? validateLicenseKey(newLicenseKey) : false;
     } else if (action === 'Contact Support') {
       vscode.env.openExternal(vscode.Uri.parse('mailto:support@your-website.com'));
     }
@@ -81,9 +114,22 @@ async function promptForLicenseKey(): Promise<void> {
     if (validateLicenseKey(licenseKey)) {
       const config = vscode.workspace.getConfiguration('grokIntegration');
       await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage('License key validated successfully!');
+      vscode.window.showInformationMessage('✅ License key validated successfully!');
     } else {
-      vscode.window.showErrorMessage('Invalid license key format. Please try again.');
+      const action = await vscode.window.showErrorMessage(
+        '❌ Invalid license key format. Please try again.',
+        'Use Demo Key',
+        'Try Again'
+      );
+      
+      if (action === 'Use Demo Key') {
+        const config = vscode.workspace.getConfiguration('grokIntegration');
+        const demoKey = 'GI-42C37011-2F58C780-240A39A5'; // Generated demo key
+        await config.update('licenseKey', demoKey, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('✅ Demo license activated!');
+      } else if (action === 'Try Again') {
+        await promptForLicenseKey();
+      }
     }
   }
 }
@@ -339,6 +385,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register context menu items
   const explainCodeCommand = vscode.commands.registerCommand('grok-integration.explainCode', async () => {
+    // Check license first
+    const isLicensed = await checkLicenseStatus();
+    if (!isLicensed) {
+      return;
+    }
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
@@ -356,6 +407,11 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const reviewCodeCommand = vscode.commands.registerCommand('grok-integration.reviewCode', async () => {
+    // Check license first
+    const isLicensed = await checkLicenseStatus();
+    if (!isLicensed) {
+      return;
+    }
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 

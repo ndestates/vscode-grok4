@@ -5,11 +5,10 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 ## 🚀 Quick Start
 
 ### 1. Install the Extension
-- Download `grok-integration-1.0.0.vsix`
 - Open VS Code
-- Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-- Type "Extensions: Install from VSIX..."
-- Select the downloaded `.vsix` file
+- Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`)
+- Search for "Grok Integration"
+- Click "Install"
 - Restart VS Code
 
 ### 2. Get Your xAI API Key
@@ -74,7 +73,49 @@ When chatting with `@grok`, use these slash commands:
 - The extension includes a demo license - no purchase needed to get started
 - Visit our [GitHub repository](https://github.com/ndestates/vscode-grok4) for support
 
-## 📝 License
+## � Development
+
+### Building from Source
+
+If you want to build the extension from source code:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/ndestates/vscode-grok4.git
+   cd vscode-grok4/grok-integration
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Compile TypeScript**:
+   ```bash
+   npm run compile
+   ```
+
+4. **Package the extension**:
+   ```bash
+   npm install -g vsce
+   vsce package
+   ```
+
+5. **Install the generated VSIX**:
+   ```bash
+   code --install-extension grok-integration-*.vsix
+   ```
+
+### Development Setup
+
+For active development:
+
+1. Open the project in VS Code
+2. Press `F5` to launch a new Extension Development Host window
+3. Test your changes in the development instance
+4. Use `npm run compile` to rebuild after making changes
+
+## �📝 License
 
 This extension includes a demo license for immediate use. For extended features, a full license is available.
 
