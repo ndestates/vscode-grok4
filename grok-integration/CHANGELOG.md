@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/), and this 
 
 ## [Unreleased]
 
+### Added
+- Development branch for version 1.0.4
+
 ### Changed
 - Improved documentation with development build instructions
 
