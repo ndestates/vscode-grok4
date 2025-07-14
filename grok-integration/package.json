@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -78,6 +78,12 @@
       }
       ,
       {
+        "command": "grok-integration.showTokenCount",
+        "title": "🔢 Grok: Show Token Count",
+        "description": "Display the estimated token count for your selected code in a webview panel"
+      }
+      ,
+      {
         "command": "grok-integration.uploadFiles",
         "title": "📂 Grok: Upload Files for Analysis",
         "description": "Select and upload multiple files to Grok for review or analysis"
@@ -134,6 +140,14 @@
         {
           "command": "grok-integration.securityFix",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "grok-integration.showTokenCount",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "grok-integration.uploadFiles",
+          "when": "editorTextFocus"
         }
       ]
     },

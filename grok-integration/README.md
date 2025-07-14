@@ -2,6 +2,14 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
+## 🚀 New in v1.2.0
+
+- 🔢 **Show Token Count**: Instantly estimate token count for selected code via right-click context menu.
+- 📂 **Upload Files for Analysis**: Now available in the right-click context menu. Supports selecting multiple files and folders (recursively) for upload and review.
+- Enhanced error handling and command registration.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install the Extension
@@ -27,15 +35,6 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - Type: `@grok Hello!`
 - Press Enter and watch Grok respond!
 
-
-## 🚀 New in v1.1.0
-
-- 📂 **Multi-file Upload**: Select and upload multiple files for Grok to review or analyze using the new command in the Command Palette.
-- 🧮 **Token Estimation**: The extension estimates token usage before sending requests and will prompt you if your request is large.
-- ⚙️ **Configurable maxTokens**: Set the maximum number of tokens for Grok responses in settings. 1 token ≈ 4 characters. The extension guides you if your request is too large.
-
----
-
 ### 💬 Chat with Grok
 Use `@grok` in the VS Code chat panel alongside other AI assistants:
 - `@grok How do I optimize this React component?`
@@ -45,8 +44,9 @@ Use `@grok` in the VS Code chat panel alongside other AI assistants:
 ### 🔧 Quick Actions
 - **Ask Questions**: `Ctrl+Shift+G` / `Cmd+Shift+G` - Instant access to Grok
 - **Edit Code**: `Ctrl+Shift+E` / `Cmd+Shift+E` - Get help editing selected code
-- **Upload Files**: Use the Command Palette and select "📂 Grok: Upload Files for Analysis" to send multiple files for review or analysis
-- **Right-click menus**: Select code and right-click for "Explain", "Review", or "Security Fix" options
+- **Upload Files**: Use the Command Palette or right-click and select "📂 Grok: Upload Files for Analysis" to send multiple files or folders for review or analysis
+- **Show Token Count**: Right-click selected code and choose "🔢 Grok: Show Token Count" to estimate token usage
+- **Right-click menus**: Select code and right-click for "Explain", "Review", "Security Fix", "Show Token Count", or "Upload Files for Analysis"
 
 ### 🎯 Specialized Commands
 When chatting with `@grok`, use these slash commands:
@@ -64,7 +64,6 @@ When chatting with `@grok`, use these slash commands:
 ✅ **Smart follow-ups** - Get suggested next questions  
 ✅ **Multiple ways to interact** - Chat panel, keyboard shortcuts, or context menus  
 ✅ **Demo license included** - Start using immediately, no purchase required  
-
 
 ## 🧮 Token Usage & Limits
 

@@ -3,6 +3,18 @@
 All notable changes to the "grok-integration" extension will be documented in this file.
 
 
+## [1.2.0] - 2025-07-14
+### Added
+- 🔢 **Show Token Count**: New command and webview to estimate token count for selected code, accessible from the right-click context menu.
+- 📂 **Upload Files for Analysis**: Now available in the right-click context menu. Supports selecting multiple files and folders (recursively) for upload and review.
+
+### Changed
+- Enhanced file upload logic to support folders and multi-file selection.
+- Improved error handling and command registration.
+
+### Fixed
+- Internal code cleanup and bug fixes for context menu and command logic.
+
 ## [1.1.0] - 2025-07-14
 ### Added
 - 📂 **Multi-file Upload**: New command to select and upload multiple files for Grok analysis and review.
