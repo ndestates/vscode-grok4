@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.0.10",
+  "version": "1.1.0",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
     "commands": [
       {
         "command": "grok-integration.askGrok",
-        "title": "🤖 Grok: Ask About Selected Code",
+        "title": "🌀 Grok: Ask About Selected Code",
         "description": "Get AI-powered insights about your selected code - explanations, reviews, optimizations and more"
       },
       {
@@ -70,6 +70,17 @@
         "command": "grok-integration.debugTest",
         "title": "🔧 Grok: Debug Extension",
         "description": "Test extension functionality and troubleshoot any issues"
+      },
+      {
+        "command": "grok-integration.securityFix",
+        "title": "🛡️ Grok: Propose Security Fix",
+        "description": "Analyze selected code for security vulnerabilities and propose specific fixes"
+      }
+      ,
+      {
+        "command": "grok-integration.uploadFiles",
+        "title": "📂 Grok: Upload Files for Analysis",
+        "description": "Select and upload multiple files to Grok for review or analysis"
       }
     ],
     "chatParticipants": [
@@ -113,14 +124,16 @@
     "menus": {
       "editor/context": [
         {
-          "when": "editorHasSelection",
           "command": "grok-integration.explainCode",
-          "group": "9_grok@1"
+          "when": "editorHasSelection"
         },
         {
-          "when": "editorHasSelection",
           "command": "grok-integration.reviewCode",
-          "group": "9_grok@2"
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "grok-integration.securityFix",
+          "when": "editorHasSelection"
         }
       ]
     },
@@ -154,6 +167,13 @@
           "description": "📄 Your Grok Integration license key (demo key included for trial use)",
           "scope": "application",
           "markdownDescription": "Your Grok Integration license key. **Demo key included** for trial use. Contact support for full license."
+        }
+        ,
+        "grokIntegration.maxTokens": {
+          "type": "number",
+          "default": 3000,
+          "description": "Maximum number of tokens for Grok responses. The extension estimates token usage before sending a request and will prompt you if your request is large. Increase for longer answers, decrease to save usage. 1 token ≈ 4 characters.",
+          "markdownDescription": "Maximum number of tokens for Grok responses. The extension estimates token usage before sending a request and will prompt you if your request is large. Increase for longer answers, decrease to save usage. **Tip:** 1 token ≈ 4 characters."
         }
       }
     }
