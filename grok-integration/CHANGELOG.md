@@ -2,12 +2,37 @@
 
 All notable changes to the "grok-integration" extension will be documented in this file.
 
-The format is based on [Keep a Changelog](http://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [1.1.0] - 2025-07-14
+### Added
+- 📂 **Multi-file Upload**: New command to select and upload multiple files for Grok analysis and review.
+- 🧮 **Token Estimation**: The extension now estimates token usage before sending requests and prompts users if the request is large.
+- ⚙️ **Configurable maxTokens**: Users can set the maximum number of tokens for Grok responses in settings, with improved guidance and estimation tips.
+
+### Changed
+- Updated settings descriptions to clarify token usage and estimation.
+- Improved documentation for new features and user guidance.
+
+### Fixed
+- Minor bug fixes and internal improvements for multi-file handling and user prompts.
 
 ## [Unreleased]
 
 ### Changed
 - Preparing for next development cycle
+
+## [1.0.12] - 2025-07-14
+### Added
+- 🛡️ **Propose Security Fix**: Right-click selected code and let Grok analyze for security vulnerabilities and propose specific code fixes.
+- Command Palette and context menu integration for Explain, Review, and Security Fix.
+- Improved command descriptions and emoji icons for clarity and branding.
+
+### Changed
+- Updated documentation and command palette entries for clarity.
+- Minor internal improvements for command registration and error handling.
+
+### Fixed
+- Ensured all context menu commands (Explain, Review, Security Fix) appear when code is selected.
 
 ## [1.0.10] - 2025-07-13
 

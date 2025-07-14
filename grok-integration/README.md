@@ -27,7 +27,14 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - Type: `@grok Hello!`
 - Press Enter and watch Grok respond!
 
-## ✨ What You Can Do
+
+## 🚀 New in v1.1.0
+
+- 📂 **Multi-file Upload**: Select and upload multiple files for Grok to review or analyze using the new command in the Command Palette.
+- 🧮 **Token Estimation**: The extension estimates token usage before sending requests and will prompt you if your request is large.
+- ⚙️ **Configurable maxTokens**: Set the maximum number of tokens for Grok responses in settings. 1 token ≈ 4 characters. The extension guides you if your request is too large.
+
+---
 
 ### 💬 Chat with Grok
 Use `@grok` in the VS Code chat panel alongside other AI assistants:
@@ -38,7 +45,8 @@ Use `@grok` in the VS Code chat panel alongside other AI assistants:
 ### 🔧 Quick Actions
 - **Ask Questions**: `Ctrl+Shift+G` / `Cmd+Shift+G` - Instant access to Grok
 - **Edit Code**: `Ctrl+Shift+E` / `Cmd+Shift+E` - Get help editing selected code
-- **Right-click menus**: Select code and right-click for "Explain" or "Review" options
+- **Upload Files**: Use the Command Palette and select "📂 Grok: Upload Files for Analysis" to send multiple files for review or analysis
+- **Right-click menus**: Select code and right-click for "Explain", "Review", or "Security Fix" options
 
 ### 🎯 Specialized Commands
 When chatting with `@grok`, use these slash commands:
@@ -56,6 +64,11 @@ When chatting with `@grok`, use these slash commands:
 ✅ **Smart follow-ups** - Get suggested next questions  
 ✅ **Multiple ways to interact** - Chat panel, keyboard shortcuts, or context menus  
 ✅ **Demo license included** - Start using immediately, no purchase required  
+
+
+## 🧮 Token Usage & Limits
+
+Grok responses are limited by the `maxTokens` setting (default: 3000). The extension estimates token usage before sending requests and will prompt you if your request is too large. You can adjust `maxTokens` in the extension settings. **Tip:** 1 token ≈ 4 characters.
 
 ## 🛠️ Troubleshooting
 
