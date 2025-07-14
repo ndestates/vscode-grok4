@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import * as crypto from 'crypto';
-
-const LICENSE_KEY_PREFIX = 'GI';
-const LICENSE_PRODUCT_ID = 'grok-integration';
 // IMPORTANT: In a production environment, this secret key should be managed securely,
 // for instance, through environment variables or a dedicated secrets management service.
 // Avoid hardcoding secrets directly in the source code.
 const SECRET_KEY = process.env.GROK_LICENSE_SECRET || 'your-default-dev-secret-key-2025';
+
+// License key prefix and product ID
+const LICENSE_KEY_PREFIX = 'GI';
+const LICENSE_PRODUCT_ID = 'grok-integration';
 
 // License validation functions
 /**
@@ -498,6 +499,144 @@ function convertMarkdownToHtml(markdown: string): string {
   return html;
 }
 
+// --- Token Estimation Utility ---
+function estimateTokenCount(text: string): number {
+  // Simple heuristic: 1 token ≈ 4 characters (OpenAI guidance)
+  return Math.ceil(text.length / 4);
+}
+
+async function showTokenCount(selectedText: string): Promise<void> {
+  const tokenCount = estimateTokenCount(selectedText);
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const maxTokens = config.get<number>('maxTokens', 3000);
+
+  // Create webview panel
+  const panel = vscode.window.createWebviewPanel(
+    'grokTokenCount',
+    '🔢 Grok: Token Count',
+    vscode.ViewColumn.Beside,
+    { enableScripts: false }
+  );
+
+  panel.webview.html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Grok Token Count</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; margin: 0; padding: 2em; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
+        .count { font-size: 2em; font-weight: bold; margin: 1em 0; }
+        .max { color: var(--vscode-descriptionForeground); }
+        .tip { margin-top: 1em; color: var(--vscode-descriptionForeground); font-size: 0.95em; }
+        .code-block { background: var(--vscode-textCodeBlock-background); border-radius: 5px; padding: 1em; margin-top: 1em; font-family: 'Courier New', monospace; white-space: pre-wrap; }
+      </style>
+    </head>
+    <body>
+      <h2>🔢 Token Count Estimate</h2>
+      <div class="count">${tokenCount} tokens</div>
+      <div class="max">Max tokens allowed: <b>${maxTokens}</b></div>
+      <div class="tip">1 token ≈ 4 characters. If your request is too large, consider selecting less code or increasing <b>maxTokens</b> in settings.</div>
+      <h3>Selected Code:</h3>
+      <div class="code-block">${selectedText.length > 1000 ? selectedText.substring(0, 1000) + '... (truncated)' : selectedText}</div>
+    </body>
+    </html>
+  `;
+}
+
+// Show Token Count Command
+const showTokenCountCommand = vscode.commands.registerCommand('grok-integration.showTokenCount', async () => {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor.');
+    return;
+  }
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection).trim();
+  if (!selectedText) {
+    vscode.window.showErrorMessage('No text selected.');
+    return;
+  }
+
+  showTokenCount(selectedText);
+});
+
+const uploadFilesCommand = vscode.commands.registerCommand('grok-integration.uploadFiles', async () => {
+  // Prompt for files and/or folders
+  const uris = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: true,
+    canSelectMany: true,
+    openLabel: 'Upload to Grok'
+  });
+  if (!uris || uris.length === 0) {
+    vscode.window.showInformationMessage('No files or folders selected for upload.');
+    return;
+  }
+
+  // Gather all file paths (recursively for folders)
+  let fileUris: vscode.Uri[] = [];
+  for (const uri of uris) {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.type === vscode.FileType.File) {
+      fileUris.push(uri);
+    } else if (stat.type === vscode.FileType.Directory) {
+      // Recursively collect files in folder
+      const collectFiles = async (dir: vscode.Uri) => {
+        const entries = await vscode.workspace.fs.readDirectory(dir);
+        for (const [name, type] of entries) {
+          const entryUri = vscode.Uri.joinPath(dir, name);
+          if (type === vscode.FileType.File) {
+            fileUris.push(entryUri);
+          } else if (type === vscode.FileType.Directory) {
+            await collectFiles(entryUri);
+          }
+        }
+      };
+      await collectFiles(uri);
+    }
+  }
+
+  if (fileUris.length === 0) {
+    vscode.window.showWarningMessage('No files found in selected folders.');
+    return;
+  }
+
+  // Show a webview with the list of files to be uploaded
+  const panel = vscode.window.createWebviewPanel(
+    'grokUploadFiles',
+    '📂 Grok: Upload Files',
+    vscode.ViewColumn.Beside,
+    { enableScripts: false }
+  );
+  panel.webview.html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Grok Upload Files</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; margin: 0; padding: 2em; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
+        .file-list { margin: 1em 0; }
+        .file-item { margin-bottom: 0.5em; }
+      </style>
+    </head>
+    <body>
+      <h2>📂 Files to Upload to Grok</h2>
+      <div class="file-list">
+        ${fileUris.map(uri => `<div class="file-item">${uri.fsPath}</div>`).join('')}
+      </div>
+      <div>Total files: <b>${fileUris.length}</b></div>
+      <div style="margin-top:1em; color:var(--vscode-descriptionForeground);">(Upload to Grok will be implemented in a future update.)</div>
+    </body>
+    </html>
+  `;
+});
+
+
+
 export function activate(context: vscode.ExtensionContext) {
   // Register the chat participant
   const chatParticipant = vscode.chat.createChatParticipant('grok-integration.grok', async (request, context, stream, token) => {
@@ -900,6 +1039,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Use the new panel system
     await showGrokPanel(userPrompt, `${userPrompt}\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``, editor.document.languageId, 'analyze');
   });
+  
+  context.subscriptions.push(uploadFilesCommand);
 
   // Test connection command
   const testConnectionCommand = vscode.commands.registerCommand('grok-integration.testConnection', async () => {
@@ -1025,7 +1166,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand, debugTestCommand);
+  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand, debugTestCommand, uploadFilesCommand);
 }
 
-export function deactivate() {}
+export function deactivate() { 
+  console.log('Grok Extension: Deactivating...');
+  // Perform any necessary cleanup here
+}
