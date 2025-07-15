@@ -3,7 +3,7 @@
 All notable changes to the "grok-integration" extension will be documented in this file.
 
 
-## [1.2.02] - 2025-07-14
+## [1.2.3] - 2025-07-14
 ### Added
 - 🔢 **Show Token Count**: New command and webview to estimate token count for selected code, accessible from the right-click context menu.
 - 📂 **Upload Files for Analysis**: Now available in the right-click context menu. Supports selecting multiple files and folders (recursively) for upload and review.
@@ -16,15 +16,10 @@ All notable changes to the "grok-integration" extension will be documented in th
 - Internal code cleanup and bug fixes for context menu and command logic.
 
 ## [1.1.0] - 2025-07-14
-### Added
+## [1.2.3] - 2025-07-14
 - 📂 **Multi-file Upload**: New command to select and upload multiple files for Grok analysis and review.
-- 🧮 **Token Estimation**: The extension now estimates token usage before sending requests and prompts users if the request is large.
-- ⚙️ **Configurable maxTokens**: Users can set the maximum number of tokens for Grok responses in settings, with improved guidance and estimation tips.
 
-### Changed
-- Updated settings descriptions to clarify token usage and estimation.
 - Improved documentation for new features and user guidance.
-
 ### Fixed
 - Minor bug fixes and internal improvements for multi-file handling and user prompts.
 

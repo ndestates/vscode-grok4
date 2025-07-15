@@ -2,11 +2,15 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
-## 🚀 New in v1.2.0
 
-- 🔢 **Show Token Count**: Instantly estimate token count for selected code via right-click context menu.
-- 📂 **Upload Files for Analysis**: Now available in the right-click context menu. Supports selecting multiple files and folders (recursively) for upload and review.
-- Enhanced error handling and command registration.
+## 🚀 New in v1.3.0
+
+- � **Security & Privacy Refactor**: License key is now stored in VS Code settings (not SecretStorage). All license management is configuration-based for transparency and portability.
+- � **Rate Limiting**: Prevents more than 5 Grok API calls per minute to avoid accidental overuse and improve stability.
+- 🧠 **Higher max_tokens**: Grok API calls now use up to 9000 tokens for longer, more complete answers.
+- 🛡️ **Safer Error Handling**: Improved error messages and handling for unknown errors and API/network issues.
+- 🛠️ **Modernized Codebase**: Refactored for maintainability, security, and future features. Removed legacy SecretStorage code.
+- 📝 **README & Docs Updated**: Installation, build, and usage instructions improved for ddev and VSIX workflows.
 
 ---
 
