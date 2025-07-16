@@ -69,7 +69,7 @@ The VSIX filename will automatically reflect the version number.
 1. **Make changes** to source files in `src/`
 2. **Compile**: `ddev exec "npm run compile"`
 3. **Test**: Press F5 in VS Code to launch Extension Development Host
-4. **Package**: `ddev exec "cd grok-integration && vsce package"`
+4. **Package**: ``
 5. **Install**: Use Command Palette → "Extensions: Install from VSIX..."
 
 ## Features (Technical)

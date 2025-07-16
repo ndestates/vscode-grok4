@@ -12,7 +12,13 @@ module.exports = {
     libraryTarget: 'commonjs2'
   },
   externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    'gpt-tokenizer': 'commonjs gpt-tokenizer' // externalize large tokenizer to reduce bundle size
+  },
+  optimization: {
+    minimize: true,
+    usedExports: true,
+    sideEffects: false
   },
   resolve: {
     // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
