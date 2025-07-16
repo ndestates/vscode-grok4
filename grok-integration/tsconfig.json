@@ -12,5 +12,6 @@
     "skipLibCheck": true,  // Added to skip type checks for third-party libs (helps with dompurify conflicts)
     "forceConsistentCasingInFileNames": true
   },
+  "include": ["src/**/*.ts", "src/types/**/*.d.ts"],
   "exclude": ["node_modules", "**/*.test.ts"]
 }
