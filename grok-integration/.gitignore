@@ -1,7 +1,7 @@
 # VS Code Extension build outputs
 out
 dist
-*.vsix
+# *.vsix  # Allow VSIX files to be tracked for distribution
 *.vsix.bak
 
 # Node.js dependencies and cache

@@ -14,7 +14,7 @@ yarn-error.log*
 .env.production
 
 # VS Code Extension build outputs
-*.vsix
+# *.vsix  # Allow VSIX files to be tracked for distribution
 out/
 dist/
 
