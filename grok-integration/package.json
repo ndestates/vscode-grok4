@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -16,7 +16,14 @@
     "Other"
   ],
   "activationEvents": [
-    "onChatParticipant:grok-integration.grok"
+    "onChatParticipant:grok-integration.grok",
+    "onCommand:grok-integration.testConnection",
+    "onCommand:grok-integration.explainCode",
+    "onCommand:grok-integration.reviewCode",
+    "onCommand:grok-integration.askGrok",
+    "onCommand:grok-integration.askGrokInline",
+    "onCommand:grok-integration.editWithGrok",
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
