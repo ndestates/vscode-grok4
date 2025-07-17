@@ -2,6 +2,22 @@
 
 All notable changes to the "grok-integration" extension will be documented in this file.
 
+## [1.3.6] - 2025-07-17
+
+### Fixed
+- **Rate Limiting Issues**: Increased rate limit from 5 to 20 requests per minute to resolve installation and activation problems
+- **Command Registration**: Fixed missing command registrations that were preventing proper extension functionality
+- **Duplicate Rate Limiting**: Removed conflicting rate limiting mechanisms that were causing API call failures
+
+### Improved
+- **Extension Activation**: Streamlined activation process for better reliability
+- **Error Handling**: Enhanced error messages and fallback mechanisms
+- **Performance**: Optimized rate limiting logic for better user experience
+
+### Technical
+- Simplified rate limiting implementation
+- Fixed command subscription registration
+- Improved console logging for debugging
 
 ## [1.2.3] - 2025-07-14
 ### Added
