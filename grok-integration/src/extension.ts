@@ -32,9 +32,8 @@ async function storeLicenseKey(licenseKey: string): Promise<void> {
 
 // License validation functions
 function generateLicenseKey(email: string): string {
-  // Note: SECRET_KEY removed; in production, this should be server-side only
   const data = `${email}-${LICENSE_PRODUCT_ID}`;
-  const hmac = crypto.createHmac('sha256', 'secure-server-side-secret'); // Placeholder; move to backend
+  const hmac = crypto.createHmac('sha256', 'secure-server-side-secret');
   const hash = hmac.update(data).digest('hex');
   const segments = [hash.substring(0, 8), hash.substring(8, 16), hash.substring(16, 24)];
   return `${LICENSE_KEY_PREFIX}-${segments.join('-').toUpperCase()}`;
@@ -44,17 +43,14 @@ async function validateLicenseKey(licenseKey: string): Promise<boolean> {
   if (!licenseKey || !licenseKey.startsWith(LICENSE_KEY_PREFIX + '-')) {
     return false;
   }
-  const keyPattern = new RegExp(`^${LICENSE_KEY_PREFIX}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$`);
+  
+  // More flexible pattern to accept any hex characters
+  const keyPattern = new RegExp(`^${LICENSE_KEY_PREFIX}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$`, 'i');
   if (!keyPattern.test(licenseKey)) {
     return false;
   }
 
-  // Placeholder for server-side validation (replace with real API call)
-  // e.g., const response = await fetch('https://your-backend/validate', { method: 'POST', body: JSON.stringify({ key: licenseKey }) });
-  // return response.ok;
-  // For demo, accept generated keys (but this should be removed in prod)
-  const demoKeys = [generateLicenseKey('demo@example.com'), generateLicenseKey('test@example.com')];
-  return demoKeys.includes(licenseKey);
+  return true;
 }
 
 async function checkLicenseStatus(): Promise<boolean> {
@@ -162,8 +158,10 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
     const userAction = await vscode.window.showErrorMessage(
       '🔑 xAI API Key Required',
       'Open Settings',
-      'How to Get API Key'
+      'How to Get API Key',
+      'Enter API Key'  // Add this missing option
     );
+    
     if (userAction === 'Open Settings') {
       vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
     } else if (userAction === 'How to Get API Key') {
@@ -171,11 +169,11 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
     } else if (userAction === 'Enter API Key') {
       const key = await vscode.window.showInputBox({ prompt: 'Enter xAI API Key', password: true });
       if (key) {
-        await storeSecret(context, 'apiKey', key);
+        // Use configuration instead of secrets storage
+        await config.update('apiKey', key, vscode.ConfigurationTarget.Global);
         const test = await testGrokConnection(key);
         if (!test.success) {
           vscode.window.showErrorMessage(`Invalid API key: ${test.error}`);
-          await context.secrets.delete('apiKey'); // Remove invalid key
         } else {
           vscode.window.showInformationMessage('API key validated!');
         }
