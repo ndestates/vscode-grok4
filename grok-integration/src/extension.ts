@@ -1,143 +1,202 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import * as crypto from 'crypto';
-import DOMPurify from 'dompurify';
-import { encode } from 'gpt-tokenizer';
-
-// --- TypeScript: Add global type for __grokApiRateLimit ---
-declare global {
-  // eslint-disable-next-line no-var
-  var __grokApiRateLimit: { count: number; reset: number } | undefined;
-}
+import * as path from 'path';
+import * as fs from 'fs';
+import DOMPurify from 'dompurify'; // For sanitizing HTML
+import { encode } from 'gpt-tokenizer'; // For token estimation
 
 // Rate limiting: Simple in-memory counter (reset every minute)
 let requestCount = 0;
-const MAX_REQUESTS_PER_MINUTE = 5;
+const MAX_REQUESTS_PER_MINUTE = 30; // Increased from 5 to 30
 setInterval(() => { requestCount = 0; }, 60000); // Reset every minute
 
-// License key prefix and product ID
+// License constants
 const LICENSE_KEY_PREFIX = 'GI';
 const LICENSE_PRODUCT_ID = 'grok-integration';
+const DEMO_LICENSE_KEY = 'GI-DEMO-KEY-12345678'; // For demo mode
 
-// Helper: Store/retrieve license key using VS Code configuration
+// segment2-license.ts
+
+// Helper: Get stored license key from configuration
 function getLicenseKey(): string | undefined {
   const config = vscode.workspace.getConfiguration('grokIntegration');
   return config.get<string>('licenseKey');
 }
 
+// Helper: Store license key in configuration
 async function storeLicenseKey(licenseKey: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('grokIntegration');
   await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);
 }
 
-// License validation functions
-function generateLicenseKey(email: string): string {
+// Generate license key (securely using SecretStorage)
+async function generateLicenseKey(email: string, context: vscode.ExtensionContext): Promise<string> {
+  let secret = await context.secrets.get('grokSecret');
+  if (!secret) {
+    secret = crypto.randomBytes(32).toString('hex'); // Generate if not set
+    await context.secrets.store('grokSecret', secret);
+  }
   const data = `${email}-${LICENSE_PRODUCT_ID}`;
-  const hmac = crypto.createHmac('sha256', 'secure-server-side-secret');
+  const hmac = crypto.createHmac('sha256', secret);
   const hash = hmac.update(data).digest('hex');
   const segments = [hash.substring(0, 8), hash.substring(8, 16), hash.substring(16, 24)];
   return `${LICENSE_KEY_PREFIX}-${segments.join('-').toUpperCase()}`;
 }
 
+// Validate license key
 async function validateLicenseKey(licenseKey: string): Promise<boolean> {
   if (!licenseKey || !licenseKey.startsWith(LICENSE_KEY_PREFIX + '-')) {
     return false;
   }
-  
-  // More flexible pattern to accept any hex characters
   const keyPattern = new RegExp(`^${LICENSE_KEY_PREFIX}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$`, 'i');
-  if (!keyPattern.test(licenseKey)) {
-    return false;
-  }
-
-  return true;
+  if (!keyPattern.test(licenseKey)) return false;
+  
+  // TODO: Add server-side validation if needed (e.g., check against a database)
+  return true; // For now, assume format match is valid
 }
 
-async function checkLicenseStatus(): Promise<boolean> {
-  const licenseKey = getLicenseKey();
+// Check license status and handle demo mode
+async function checkLicenseStatus(context: vscode.ExtensionContext): Promise<boolean> {
+  let licenseKey = getLicenseKey();
   if (!licenseKey) {
-    const action = await vscode.window.showInformationMessage(
-      'No license found. Use demo mode?',
-      'Yes, Use Demo',
-      'Enter Key'
-    );
-    if (action === 'Yes, Use Demo') {
-      const demoKey = generateLicenseKey('demo@example.com');
-      await storeLicenseKey(demoKey);
-      vscode.window.showInformationMessage('✅ Demo license activated!');
-      return true;
-    } else if (action === 'Enter Key') {
-      await promptForLicenseKey();
-      return checkLicenseStatus(); // Recheck
-    }
-    return false;
+    licenseKey = DEMO_LICENSE_KEY;
+    await storeLicenseKey(licenseKey);
+    vscode.window.showInformationMessage('Demo mode activated. Limited features available.');
   }
-
   const isValid = await validateLicenseKey(licenseKey);
   if (!isValid) {
-    const action = await vscode.window.showErrorMessage('❌ Invalid License', 'Reset to Demo', 'Enter New Key', 'Contact Support');
-    if (action === 'Reset to Demo') {
-      const demoKey = generateLicenseKey('demo@example.com');
-      await storeLicenseKey(demoKey);
-      vscode.window.showInformationMessage('✅ Demo license activated!');
-      return true;
-    } else if (action === 'Enter New Key') {
-      await promptForLicenseKey();
-      return checkLicenseStatus();
-    } else if (action === 'Contact Support') {
-      vscode.env.openExternal(vscode.Uri.parse('mailto:support@your-website.com'));
-    }
-    return false;
+    vscode.window.showErrorMessage('Invalid license key. Please enter a valid one.');
   }
-  return true;
+  return isValid;
 }
 
-async function promptForLicenseKey(): Promise<void> {
-  const licenseKey = await vscode.window.showInputBox({
-    prompt: 'Enter your Grok Integration license key',
-    placeHolder: 'GI-XXXXXXXX-XXXXXXXX-XXXXXXXX',
-    ignoreFocusOut: true
-  });
-
-  if (licenseKey) {
-    if (await validateLicenseKey(licenseKey)) {
-      await storeLicenseKey(licenseKey);
-      vscode.window.showInformationMessage('✅ License key validated successfully!');
-    } else {
-      const action = await vscode.window.showErrorMessage('❌ Invalid key', 'Use Demo', 'Try Again');
-      if (action === 'Use Demo') {
-        const demoKey = generateLicenseKey('demo@example.com');
-        await storeLicenseKey(demoKey);
-        vscode.window.showInformationMessage('✅ Demo license activated!');
-      } else if (action === 'Try Again') {
-        await promptForLicenseKey();
-      }
-    }
-  }
+// Prompt user for license key
+async function promptForLicenseKey(context: vscode.ExtensionContext): Promise<void> {
+  const email = await vscode.window.showInputBox({ prompt: 'Enter your email for license generation' });
+  if (!email) return;
+  const licenseKey = await generateLicenseKey(email, context);
+  await storeLicenseKey(licenseKey);
+  vscode.window.showInformationMessage(`License key generated: ${licenseKey}`);
 }
 
-// Redact potential secrets (basic heuristic)
+// Command to enter license key manually
+async function enterLicenseKeyCommand(): Promise<void> {
+  const licenseKey = await vscode.window.showInputBox({ prompt: 'Enter your Grok Integration license key' });
+  if (licenseKey && await validateLicenseKey(licenseKey)) {
+    await storeLicenseKey(licenseKey);
+    vscode.window.showInformationMessage('License key validated and stored.');
+  } else {
+    vscode.window.showErrorMessage('Invalid license key.');
+  }
+}
+// segment3-helpers.ts
+
+// Redact potential secrets from text
 function redactSecrets(text: string): string {
-  return text.replace(/(api_key|password|secret|token)=[^& \n]+/gi, '$1=REDACTED');
+  return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
 }
 
-// Test connection to Grok API
-async function testGrokConnection(apiKey: string): Promise<{success: boolean, error?: string}> {
+// Estimate token count using gpt-tokenizer
+function estimateTokens(text: string): number {
+  const tokens = encode(text);
+  return tokens.length;
+}
+
+// Get basic workspace context (limited to avoid data exposure)
+async function getWorkspaceContext(): Promise<string> {
+  const workspaceName = vscode.workspace.name || 'Untitled';
+  const activeFile = vscode.window.activeTextEditor?.document.fileName || 'No active file';
+  // TODO: Add more context if needed, but keep it minimal
+  return `Workspace: ${workspaceName}\nActive File: ${activeFile}`;
+}
+
+// Get loading HTML for webview with script for updates
+function getLoadingHTML(): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <body style="background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font-family: var(--vscode-font-family);">
+      <div id="content">🔍 Connecting to Grok... Please wait.</div>
+      <script>
+        (function() {
+          const vscode = acquireVsCodeApi();
+          window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.type === 'update') {
+              document.getElementById('content').innerHTML += message.content;
+            } else if (message.type === 'complete') {
+              document.getElementById('content').innerHTML = message.html;
+            }
+          });
+        })();
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+// Convert markdown to sanitized HTML (for responses)
+function convertMarkdownToHtml(markdown: string): string {
+  // Simple markdown to HTML (use a library like marked if needed)
+  let html = markdown.replace(/\n/g, '<br>').replace(/```(\w+)?\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>');
+  return DOMPurify.sanitize(html); // Sanitize to prevent XSS
+}
+
+// segment4-api.ts
+
+// Test Grok API connection
+async function testGrokConnection(apiKey: string): Promise<boolean> {
   try {
     const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
     const response = await openai.chat.completions.create({
-      model: 'grok-4-0709',
+      model: 'grok-2-1212',
       messages: [{ role: 'user', content: 'Hi' }],
       max_tokens: 3,
       temperature: 0.1
     });
-    return { success: !!response.choices?.length };
+    return response.choices && response.choices.length > 0;
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    console.error('Connection test failed:', error);
+    return false;
   }
 }
 
-// Show Grok response panel with consent and security
+// Process Grok request with streaming and webview updates
+async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<void> {
+  const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+  const redactedCode = redactSecrets(code);
+  const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+
+  const tokenCount = estimateTokens(prompt);
+  if (tokenCount > 8000) { // Approximate Grok limit
+    panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
+    return;
+  }
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: 'grok-4-0709',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+      temperature: 0.7,
+      stream: true,
+    });
+
+    let fullResponse = '';
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      fullResponse += content;
+      panel.webview.postMessage({ type: 'update', content: convertMarkdownToHtml(content) });
+    }
+    panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
+  }
+}
+
+// Show Grok webview panel
 async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string): Promise<void> {
   if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
     vscode.window.showErrorMessage('Rate limit exceeded. Please wait a minute.');
@@ -145,776 +204,418 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
   }
   requestCount++;
 
-  const consent = await vscode.window.showInformationMessage(
-    'This will send selected code to xAI API. Proceed?',
-    'Yes',
-    'No'
-  );
+  const consent = await vscode.window.showInformationMessage('Send selected code to xAI API?', 'Yes', 'No');
   if (consent !== 'Yes') return;
 
   const config = vscode.workspace.getConfiguration('grokIntegration');
   const apiKey = config.get<string>('apiKey');
   if (!apiKey) {
-    const userAction = await vscode.window.showErrorMessage(
-      '🔑 xAI API Key Required',
-      'Open Settings',
-      'How to Get API Key',
-      'Enter API Key'  // Add this missing option
-    );
-    
-    if (userAction === 'Open Settings') {
-      vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-    } else if (userAction === 'How to Get API Key') {
-      vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
-    } else if (userAction === 'Enter API Key') {
-      const key = await vscode.window.showInputBox({ prompt: 'Enter xAI API Key', password: true });
-      if (key) {
-        // Use configuration instead of secrets storage
-        await config.update('apiKey', key, vscode.ConfigurationTarget.Global);
-        const test = await testGrokConnection(key);
-        if (!test.success) {
-          vscode.window.showErrorMessage(`Invalid API key: ${test.error}`);
-        } else {
-          vscode.window.showInformationMessage('API key validated!');
-        }
-      }
-    }
-    return;
-  }
-
-  const panel = vscode.window.createWebviewPanel(
-    'grokResponse',
-    `🤖 Grok: ${title}`,
-    vscode.ViewColumn.Beside,
-    { enableScripts: false } // Disabled for security
-  );
-
-  // Use MarkdownString for safe rendering
-  const md = new vscode.MarkdownString();
-  md.appendMarkdown(`# Grok AI - ${title}\n\n`);
-  md.appendMarkdown('🔍 Initializing...\n\n');
-  md.appendMarkdown('### Selected Code:\n\n');
-  md.appendCodeblock(code, language);
-  panel.webview.html = md.value; // Note: For full safety, use a webview with postMessage if dynamic updates needed
-
-  await processGrokRequest(panel, redactSecrets(code), language, action, apiKey);
-}
-
-async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<void> {
-  // --- Rate limiting: allow up to 5 API calls per minute ---
-  if (!globalThis.__grokApiRateLimit) {
-    globalThis.__grokApiRateLimit = { count: 0, reset: Date.now() + 60000 };
-  }
-  const rate = globalThis.__grokApiRateLimit;
-  if (Date.now() > rate.reset) {
-    rate.count = 0;
-    rate.reset = Date.now() + 60000;
-  }
-  if (rate.count >= 5) {
-    const md = new vscode.MarkdownString('❌ Error: Rate limit exceeded. Please wait a minute and try again.');
-    panel.webview.html = md.value;
-    return;
-  }
-  rate.count++;
-
-  try {
-    const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
-    let systemPrompt = `You are Grok, a helpful AI built by xAI. ${action} the following ${language} code.`;
-    const workspaceContext = await getWorkspaceContext();
-    const contextConsent = await vscode.window.showInformationMessage('Include workspace context in prompt?', 'Yes', 'No');
-    if (contextConsent === 'Yes') {
-      systemPrompt += `\nWorkspace context: ${redactSecrets(workspaceContext)}`;
-    }
-    let userMessage = redactSecrets(code); // Already good, but enhance redactSecrets if needed
-    switch (action) {
-      case 'explain':
-        systemPrompt = 'You are Grok. Explain this code concisely but thoroughly. Focus on key concepts and functionality.';
-        userMessage = `Explain this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
-        break;
-      case 'review':
-        systemPrompt = 'You are Grok. Review this code for issues, improvements, and best practices. Be specific and constructive.';
-        userMessage = `Review this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
-        break;
-      case 'analyze':
-        systemPrompt = 'You are Grok. Analyze the provided code and provide helpful insights.';
-        userMessage = `${code}`;  // For analyze, the code contains the user's prompt and code
-        break;
-      default:
-        systemPrompt = 'You are Grok. Analyze this code and provide helpful insights.';
-        userMessage = `Analyze this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``;
-    }
-
-    // Use a high max_tokens value for long replies
-    const response = await openai.chat.completions.create({
-      model: 'grok-4-0709',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
-      max_tokens: 9000,
-      temperature: 0.5
-    });
-
-    const grokResponse = response.choices[0]?.message?.content || 'No response';
-    const sanitizedResponse = DOMPurify.sanitize(grokResponse);
-    if (sanitizedResponse.length > 100000) { // Arbitrary limit to prevent DoS
-      throw new Error('Response too long');
-    }
-    const responseMd = new vscode.MarkdownString(sanitizedResponse, true);
-    panel.webview.html = responseMd.value;
-  } catch (error) {
-    let message = 'Unknown error';
-    if (error && typeof error === 'object' && 'message' in error) {
-      message = (error as any).message;
-    } else if (typeof error === 'string') {
-      message = error;
-    }
-    const md = new vscode.MarkdownString(`❌ Error: ${message}`);
-    panel.webview.html = md.value;
-  }
-}
-
-// Token estimation and other functions refactored similarly (use MarkdownString, add consent/rate limiting)
-
-// Upload Files Command with filtering and consent
-const uploadFilesCommand = vscode.commands.registerCommand('grok-integration.uploadFiles', async () => {
-  const consent = await vscode.window.showInformationMessage(
-    'This may expose files. Proceed?',
-    'Yes',
-    'No'
-  );
-  if (consent !== 'Yes') return;
-
-  const uris = await vscode.window.showOpenDialog({
-    canSelectFiles: true,
-    canSelectFolders: true,
-    canSelectMany: true,
-    openLabel: 'Upload to Grok'
-  });
-  if (!uris || uris.length === 0) {
-    vscode.window.showInformationMessage('No files or folders selected for upload.');
-    return;
-  }
-
-  // Gather all file paths (recursively for folders)
-  let fileUris: vscode.Uri[] = [];
-  for (const uri of uris) {
-    const stat = await vscode.workspace.fs.stat(uri);
-    if (stat.type === vscode.FileType.File) {
-      fileUris.push(uri);
-    } else if (stat.type === vscode.FileType.Directory) {
-      // Recursively collect files in folder
-      const collectFiles = async (dir: vscode.Uri) => {
-        const entries = await vscode.workspace.fs.readDirectory(dir);
-        for (const [name, type] of entries) {
-          const entryUri = vscode.Uri.joinPath(dir, name);
-          if (type === vscode.FileType.File) {
-            fileUris.push(entryUri);
-          } else if (type === vscode.FileType.Directory) {
-            await collectFiles(entryUri);
-          }
-        }
-      };
-      await collectFiles(uri);
-    }
-  }
-
-  if (fileUris.length === 0) {
-    vscode.window.showWarningMessage('No files found in selected folders.');
-    return;
-  }
-
-  // Show a webview with the list of files to be uploaded
-  const panel = vscode.window.createWebviewPanel(
-    'grokUploadFiles',
-    '📂 Grok: Upload Files',
-    vscode.ViewColumn.Beside,
-    { enableScripts: false }
-  );
-  panel.webview.html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Grok Upload Files</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; margin: 0; padding: 2em; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
-        .file-list { margin: 1em 0; }
-        .file-item { margin-bottom: 0.5em; }
-      </style>
-    </head>
-    <body>
-      <h2>📂 Files to Upload to Grok</h2>
-      <div class="file-list">
-        ${fileUris.map(uri => `<div class="file-item">${uri.fsPath}</div>`).join('')}
-      </div>
-      <div>Total files: <b>${fileUris.length}</b></div>
-      <div style="margin-top:1em; color:var(--vscode-descriptionForeground);">(Upload to Grok will be implemented in a future update.)</div>
-    </body>
-    </html>
-  `;
-});
-
-
-
-// Helper: Securely store/retrieve secrets using VS Code SecretStorage
-async function getSecret(context: vscode.ExtensionContext, key: string): Promise<string | undefined> {
-  return context.secrets.get(key);
-}
-
-async function storeSecret(context: vscode.ExtensionContext, key: string, value: string): Promise<void> {
-  await context.secrets.store(key, value);
-}
-
-// Helper: Get workspace context (limited to avoid exposure)
-async function getWorkspaceContext(): Promise<string> {
-  // Limited to basic info; no full file contents
-  return `Workspace: ${vscode.workspace.name || 'Untitled'}`;
-}
-
-export function activate(context: vscode.ExtensionContext) {
-  // Register the chat participant
-  const chatParticipant = vscode.chat.createChatParticipant('grok-integration.grok', async (request, context, stream, token) => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      stream.markdown('❌ **License Required**: Please activate your license first.');
+    const newKey = await vscode.window.showInputBox({ prompt: 'Enter your xAI API key' });
+    if (newKey) {
+      await config.update('apiKey', newKey, vscode.ConfigurationTarget.Global);
+    } else {
       return;
     }
+  }
 
-    // Get API key from settings
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const apiKey = config.get<string>('apiKey');
-    
-    if (!apiKey) {
-      stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D) | [Get API Key](https://platform.x.ai/)');
-      return;
-    }
+  if (!(await checkLicenseStatus(context))) return;
 
-    // Handle slash commands
-    const command = request.command;
-    let systemPrompt = 'You are Grok, a helpful AI assistant integrated into VS Code. Provide clear, concise, and helpful responses to coding questions. Use markdown formatting for code examples.';
-    let userPrompt = request.prompt;
+  const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
+  panel.webview.html = getLoadingHTML();
+  await processGrokRequest(panel, code, language, action, apiKey!);
+}
 
-    switch (command) {
-      case 'explain':
-        systemPrompt = 'You are Grok, an expert code explainer. Analyze the provided code and explain what it does, how it works, and any important concepts. Be thorough but clear.';
-        break;
-      case 'review':
-        systemPrompt = 'You are Grok, a senior code reviewer. Review the provided code for potential issues, improvements, best practices, and suggest optimizations. Be constructive and specific.';
-        break;
-      case 'debug':
-        systemPrompt = 'You are Grok, a debugging expert. Help identify potential bugs, issues, or problems in the code. Suggest fixes and explain the root causes.';
-        break;
-      case 'refactor':
-        systemPrompt = 'You are Grok, a refactoring specialist. Suggest ways to improve code structure, readability, maintainability, and performance while preserving functionality.';
-        break;
-      case 'test':
-        systemPrompt = 'You are Grok, a testing expert. Generate comprehensive unit tests for the provided code. Include edge cases and follow testing best practices.';
-        break;
-      case 'optimize':
-        systemPrompt = 'You are Grok, a performance optimization expert. Analyze the code for performance bottlenecks and suggest optimizations.';
-        break;
-      case 'security':
-        systemPrompt = 'You are Grok, a senior security expert. Analyze the code for security vulnerabilities, potential attack vectors, and suggest security fixes and improvements. Focus on common security issues like injection attacks, authentication flaws, data exposure, and insecure configurations.';
-        break;
-    }
+// segment5-chat.ts
 
-    // Initialize OpenAI client with xAI base URL and timeout
-    const openai = new OpenAI({
-      apiKey,
-      baseURL: 'https://api.x.ai/v1',
-      timeout: 90000  // 90 second timeout for longer responses
-    });
-
-    try {
-      stream.progress('🔍 Connecting to Grok API...');
-      
-      // Test connection first
-      const connectionTest = await testGrokConnection(apiKey);
-      if (!connectionTest.success) {
-        stream.markdown(`❌ **Connection Failed**: ${connectionTest.error}\n\n**Troubleshooting:**\n- Check your API key is correct\n- Verify you have internet connection\n- Ensure your API key has sufficient credits\n\n[Get API Key](https://platform.x.ai/) | [Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)`);
-        return;
-      }
-
-      stream.progress('✅ Connected! Asking Grok...');
-      
-      // Get workspace context if available
-      let workspaceContext = '';
-      const activeEditor = vscode.window.activeTextEditor;
-      if (activeEditor) {
-        const document = activeEditor.document;
-        const selection = activeEditor.selection;
-        
-        if (!selection.isEmpty) {
-          const selectedText = document.getText(selection);
-          workspaceContext = `\n\nSelected code from ${document.fileName}:\n\`\`\`${document.languageId}\n${selectedText}\n\`\`\``;
-        } else if (request.references && request.references.length > 0) {
-          // Include referenced files/code
-          for (const ref of request.references) {
-            if (ref.value instanceof vscode.Uri) {
-              const doc = await vscode.workspace.openTextDocument(ref.value);
-              const code = doc.getText();
-              workspaceContext += `\n\nCode from ${doc.fileName}:\n\`\`\`${doc.languageId}\n${code}\n\`\`\``;
-            } else if (ref.value && typeof ref.value === 'string') {
-              const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(ref.value));
-              const code = doc.getText();
-              workspaceContext += `\n\nCode from ${doc.fileName}:\n\`\`\`${doc.languageId}\n${code}\n\`\`\``;
-            }
-          }
-        }
-      }
-
-      // Prepare messages with context if available
-      const messages: any[] = [
-        { role: 'system', content: systemPrompt }
-      ];
-
-      // Add conversation history if available
-      if (context.history.length > 0) {
-        context.history.forEach(entry => {
-          if (entry instanceof vscode.ChatRequestTurn) {
-            messages.push({ role: 'user', content: entry.prompt });
-          } else if (entry instanceof vscode.ChatResponseTurn) {
-            const responseText = entry.response.map(r => {
-              if (r instanceof vscode.ChatResponseMarkdownPart) {
-                return r.value.value;
-              }
-              return r.value || '';
-            }).join('');
-            messages.push({ role: 'assistant', content: responseText });
-          }
-        });
-      }
-
-      // Add current user message with workspace context
-      const finalPrompt = userPrompt + workspaceContext;
-      messages.push({ role: 'user', content: finalPrompt });
-
-      stream.progress('💭 Grok is thinking...');
-
-      // Call Grok API with streaming and optimized settings
-      const response = await openai.chat.completions.create({
-        model: 'grok-4-0709',  // Use the correct Grok model name
-        messages,
-        max_tokens: 3000,    // Increased for more complete responses
-        temperature: 0.7,    // Balanced for creative yet focused responses
-        stream: true
-      });
-
-      let responseReceived = false;
-      let fullResponse = '';
-      
-      // Stream the response
-      for await (const chunk of response) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          if (!responseReceived) {
-            stream.progress('📝 Receiving response...');
-            responseReceived = true;
-          }
-          fullResponse += content;
-          stream.markdown(content);
-        }
-        
-        // Check for cancellation
-        if (token.isCancellationRequested) {
-          stream.markdown('\n\n⏹️ *Response cancelled by user*');
-          break;
-        }
-      }
-
-      // Check if response was truncated and notify user
-      if (fullResponse.length > 2900) {
-        stream.markdown('\n\n💡 *Response may have been truncated due to length limits. For longer responses, try asking more specific questions.*');
-      }
-
-      if (!responseReceived) {
-        stream.markdown('⚠️ **No response received from Grok**\n\nThis might indicate:\n- API quota exhausted\n- Network connectivity issues\n- Service temporarily unavailable\n\nPlease try again in a moment.');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Enhanced error handling with specific messages
-      let troubleshooting = '';
-      if (errorMessage.includes('401')) {
-        troubleshooting = '\n\n**Troubleshooting:** Invalid API key. Please check your xAI API key in settings.';
-      } else if (errorMessage.includes('429')) {
-        troubleshooting = '\n\n**Troubleshooting:** Rate limit exceeded. Please wait a moment and try again.';
-      } else if (errorMessage.includes('insufficient_quota')) {
-        troubleshooting = '\n\n**Troubleshooting:** API quota exhausted. Please check your xAI account billing.';
-      } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-        troubleshooting = '\n\n**Troubleshooting:** Network connection issue. Please check your internet connection.';
-      } else {
-        troubleshooting = '\n\n**Troubleshooting:** Please verify your API key and try again.';
-      }
-      
-      stream.markdown(`❌ **Error**: ${errorMessage}${troubleshooting}\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D) | [Get API Key](https://platform.x.ai/)`);
-    }
-  });
-
-  // Set up chat participant properties with icon
-  chatParticipant.iconPath = new vscode.ThemeIcon('robot');
-
-  chatParticipant.followupProvider = {
-    provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken) {
-      return [
-        {
-          prompt: 'Explain this in more detail',
-          label: '🔍 More details',
-          command: 'followup'
-        },
-        {
-          prompt: 'Show me an example',
-          label: '💡 Show example', 
-          command: 'example'
-        },
-        {
-          prompt: 'How can I improve this code?',
-          label: '⚡ Improve code',
-          command: 'improve'
-        },
-        {
-          prompt: 'Are there any issues with this approach?',
-          label: '🐛 Find issues',
-          command: 'issues'
-        },
-        {
-          prompt: 'Generate tests for this code',
-          label: '🧪 Generate tests',
-          command: 'test'
-        }
-      ];
-    }
+class GrokChatParticipant implements vscode.ChatParticipant {
+  // Handles incoming chat requests
+  requestHandler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+    await this.handleRequest(request, stream, token);
   };
 
-  // Register inline chat and edit commands for Ask and Edit experience
-  const askGrokInlineCommand = vscode.commands.registerCommand('grok-integration.askGrokInline', async () => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      return;
-    }
-
-    // Get API key from settings
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const apiKey = config.get<string>('apiKey');
-    if (!apiKey) {
-      const action = await vscode.window.showErrorMessage(
-        '🔑 xAI API Key Required: Please set your xAI API key to use Grok.',
-        'Open Settings',
-        'How to Get API Key'
-      );
-      
-      if (action === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-      } else if (action === 'How to Get API Key') {
-        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
-      }
-      return;
-    }
-
-    // Open the chat panel and mention grok
-    await vscode.commands.executeCommand('workbench.action.chat.open');
-    // Insert @grok mention to start conversation
-    await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', '@grok ');
-  });
-
-  const editWithGrokCommand = vscode.commands.registerCommand('grok-integration.editWithGrok', async () => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      return;
-    }
-
-    // Get API key from settings
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const apiKey = config.get<string>('apiKey');
-    if (!apiKey) {
-      const action = await vscode.window.showErrorMessage(
-        '🔑 xAI API Key Required: Please set your xAI API key to use Grok.',
-        'Open Settings',
-        'How to Get API Key'
-      );
-      
-      if (action === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-      } else if (action === 'How to Get API Key') {
-        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
-      }
-      return;
-    }
-
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showErrorMessage('No active editor.');
-      return;
-    }
-
-    // Get selected text or use entire document
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection).trim();
-    
-    if (!selectedText && selection.isEmpty) {
-      // If nothing is selected, prompt for inline chat
-      await vscode.commands.executeCommand('inlineChat.start');
-      return;
-    }
-
-    // Open chat with selected code context
-    await vscode.commands.executeCommand('workbench.action.chat.open');
-    
-    // Create a prompt for code editing
-    const prompt = `@grok Please help me edit this ${editor.document.languageId} code:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\`\n\nWhat would you like me to do with this code?`;
-    await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', prompt);
-  });
-
-  // Register context menu items
-  const explainCodeCommand = vscode.commands.registerCommand('grok-integration.explainCode', async () => {
-    console.log('Grok Extension: explainCodeCommand triggered');
-    
-    try {
-      console.log('Grok Extension: Checking license status...');
-      // Check license first
-      const isLicensed = await checkLicenseStatus();
-      console.log('Grok Extension: License status:', isLicensed);
-      if (!isLicensed) {
-        console.log('Grok Extension: License validation failed');
-        vscode.window.showErrorMessage('❌ License validation failed. Please check your license.');
-        return;
-      }
-      
-      console.log('Grok Extension: Getting active editor...');
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        console.log('Grok Extension: No active editor found');
-        vscode.window.showErrorMessage('❌ No active editor found.');
-        return;
-      }
-
-      console.log('Grok Extension: Getting selection...');
-      const selection = editor.selection;
-      const selectedText = editor.document.getText(selection).trim();
-      console.log('Grok Extension: Selected text length:', selectedText.length);
-      
-      if (!selectedText) {
-        console.log('Grok Extension: No text selected');
-        vscode.window.showErrorMessage('❌ Please select code to explain.');
-        return;
-      }
-
-      // Debug info
-      console.log('Grok Extension: Explaining code:', selectedText.substring(0, 100) + '...');
-      console.log('Grok Extension: Language ID:', editor.document.languageId);
-      
-      // Show immediate feedback
-      vscode.window.showInformationMessage('🔍 Starting code explanation...');
-      
-      // Create explanation panel
-      console.log('Grok Extension: Calling showGrokPanel...');
-      await showGrokPanel(context, 'Explain Code', selectedText, editor.document.languageId, 'explain');
-      console.log('Grok Extension: showGrokPanel completed');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Grok Extension Error in explainCodeCommand:', error);
-      vscode.window.showErrorMessage(`❌ Grok Explain Error: ${errorMessage}`);
-    }
-  });
-
-  const reviewCodeCommand = vscode.commands.registerCommand('grok-integration.reviewCode', async () => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      return;
-    }
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) return;
-
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection).trim();
-    
-    if (!selectedText) {
-      vscode.window.showErrorMessage('Please select code to review.');
-      return;
-    }
-
-    // Create review panel
-    await showGrokPanel(context, 'Review Code', selectedText, editor.document.languageId, 'review');
-  });
-
-  // Original command for backward compatibility
-  const disposable = vscode.commands.registerCommand('grok-integration.askGrok', async () => {
-    // Check license first
-    const isLicensed = await checkLicenseStatus();
-    if (!isLicensed) {
-      return;
-    }
-
-    // Get selected text from active editor
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showErrorMessage('No active editor.');
-      return;
-    }
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection).trim();
-    if (!selectedText) {
-      vscode.window.showErrorMessage('No text selected.');
-      return;
-    }
-
-    // Prompt user for question (or use a default)
-    const userPrompt = await vscode.window.showInputBox({
-      prompt: 'What do you want to ask Grok about this code?',
-      value: 'Explain this code',
-      placeHolder: 'e.g., Explain this code, Review for bugs, Optimize performance'
-    });
-    if (!userPrompt) return;
-
-    // Use the new panel system
-    await showGrokPanel(context, userPrompt, `${userPrompt}\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\``, editor.document.languageId, 'analyze');
-  });
-  
-  context.subscriptions.push(uploadFilesCommand);
-
-  // Test connection command
-  const testConnectionCommand = vscode.commands.registerCommand('grok-integration.testConnection', async () => {
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const apiKey = config.get<string>('apiKey');
-    
-    if (!apiKey) {
-      const action = await vscode.window.showErrorMessage(
-        '🔑 API Key Required: Please set your xAI API key first.',
-        'Open Settings',
-        'Get API Key'
-      );
-      
-      if (action === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-      } else if (action === 'Get API Key') {
-        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
-      }
-      return;
-    }
-
-    vscode.window.withProgress({
-      location: vscode.ProgressLocation.Notification,
-      title: "Testing Grok API Connection...",
-      cancellable: false
-    }, async (progress) => {
-      progress.report({ increment: 20, message: "Connecting..." });
-      
-      const result = await testGrokConnection(apiKey);
-      
-      progress.report({ increment: 80, message: "Verifying response..." });
-      
-      if (result.success) {
-        vscode.window.showInformationMessage('✅ Grok API Connection Successful! Ready to use @grok in chat.');
-      } else {
-        const action = await vscode.window.showErrorMessage(
-          `❌ Connection Failed: ${result.error}`,
-          'Check API Key',
-          'Get Help'
-        );
-        
-        if (action === 'Check API Key') {
-          vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
-        } else if (action === 'Get Help') {
-          vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/docs'));
-        }
-      }
-    });
-  });
-
-  // License management commands
-  const enterLicenseCommand = vscode.commands.registerCommand('grok-integration.enterLicenseKey', async () => {
-    await promptForLicenseKey();
-  });
-
-  const checkLicenseCommand = vscode.commands.registerCommand('grok-integration.checkLicense', async () => {
-    const config = vscode.workspace.getConfiguration('grokIntegration');
-    const licenseKey = config.get<string>('licenseKey');
-    
-    if (!licenseKey) {
-      vscode.window.showWarningMessage('No license key found. Please enter your license key.');
-      await promptForLicenseKey();
-    } else if (await validateLicenseKey(licenseKey)) {
-      vscode.window.showInformationMessage('✅ License key is valid and active.');
-    } else {
-      vscode.window.showErrorMessage('❌ Invalid license key. Please contact support or purchase a new license.');
-    }
-  });
-
-  const purchaseLicenseCommand = vscode.commands.registerCommand('grok-integration.purchaseLicense', async () => {
-    const action = await vscode.window.showInformationMessage(
-      'Purchase Grok Integration License ($50 USD)',
-      'Open Purchase Page',
-      'Reset to Demo Key'
-    );
-    
-    if (action === 'Open Purchase Page') {
-      vscode.env.openExternal(vscode.Uri.parse('https://your-website.com/purchase'));
-    } else if (action === 'Reset to Demo Key') {
-      // Reset to demo key
-      const demoKey = 'GI-DEMO1234-ABCD5678-EFGH9012';
-      const config = vscode.workspace.getConfiguration('grokIntegration');
-      await config.update('licenseKey', demoKey, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage(`Demo license key activated: ${demoKey}`);
-    }
-  });
-
-  // Debug test command
-  const debugTestCommand = vscode.commands.registerCommand('grok-integration.debugTest', async () => {
-    console.log('Grok Extension: Debug test command triggered');
-    vscode.window.showInformationMessage('🔧 Debug Test: Extension is active and responding!');
-    
-    // Test webview creation
-    try {
-      console.log('Grok Extension: Creating test webview panel...');
-      const panel = vscode.window.createWebviewPanel(
-        'grokDebugTest',
-        '🧪 Grok Debug Test',
-        vscode.ViewColumn.Beside,
-        {
-          enableScripts: true,
-          retainContextWhenHidden: true
-        }
-      );
-      
-      panel.webview.html = `
-        <!DOCTYPE html>
-        <html>
-        <head><title>Debug Test</title></head>
-        <body>
-          <h1>🧪 Grok Debug Test</h1>
-          <p>If you can see this panel, webview creation is working!</p>
-          <p>Time: ${new Date().toISOString()}</p>
-        </body>
-        </html>
-      `;
-      
-      console.log('Grok Extension: Test webview panel created successfully');
-      vscode.window.showInformationMessage('✅ Test webview panel created! Check for new panel.');
-    } catch (error) {
-      console.error('Grok Extension: Error creating test webview:', error);
-      vscode.window.showErrorMessage(`❌ Webview creation failed: ${error}`);
-    }
-  });
-
-  context.subscriptions.push(chatParticipant, disposable, testConnectionCommand, enterLicenseCommand, checkLicenseCommand, purchaseLicenseCommand, askGrokInlineCommand, editWithGrokCommand, explainCodeCommand, reviewCodeCommand, debugTestCommand, uploadFilesCommand);
-}
-
-export function deactivate() { 
-  console.log('Grok Extension: Deactivating...');
-  // Perform any necessary cleanup here
-}
-
-// Add dependency: npm i gpt-tokenizer
-function estimateTokens(text: string): number {
-  try {
-    return encode(text).length;
-  } catch {
-    return text.split(/\s+/).length; // Fallback
+  // Optional: Handles feedback from chat results
+  private _onDidReceiveFeedbackEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
+  onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._onDidReceiveFeedbackEmitter.event;
+  followupProvider?: vscode.ChatFollowupProvider | undefined;
+  dispose(): void {
+    this._onDidReceiveFeedbackEmitter.dispose();
   }
+  id = 'grok.chatParticipant';
+  displayName = 'Grok AI';
+  iconPath = vscode.Uri.parse('https://example.com/grok-icon.png'); // TODO: Replace with actual icon URI or use vscode.Uri.file for local
+
+  async prepareRequest(request: vscode.ChatRequest, token: vscode.CancellationToken): Promise<void> {
+    // Optional: Pre-process request (e.g., check license)
+  }
+
+  async handleRequest(request: vscode.ChatRequest, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void> {
+    const config = vscode.workspace.getConfiguration('grokIntegration');
+    const apiKey = config.get<string>('apiKey');
+    if (!apiKey) {
+      stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
+      return;
+    }
+
+    const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+
+    // Handle slash commands
+    let action = 'respond to';
+    if (request.command === 'explain') action = 'explain';
+    else if (request.command === 'review') action = 'review and suggest improvements for';
+    else if (request.command === 'debug') action = 'debug';
+
+    // Get selected code or context
+    const editor = vscode.window.activeTextEditor;
+    const code = editor ? editor.document.getText(editor.selection) : '';
+    const language = editor ? editor.document.languageId : 'plaintext';
+    const redactedCode = redactSecrets(code);
+    const workspaceContext = await getWorkspaceContext();
+    const userPrompt = request.prompt || 'Hello';
+
+    const fullPrompt = `As Grok, ${action} this: ${userPrompt}\n\nCode (if any): ${redactedCode}\nLanguage: ${language}\nContext: ${workspaceContext}`;
+
+    // Token check
+    const tokenCount = estimateTokens(fullPrompt);
+    if (tokenCount > 8000) {
+      stream.markdown(`⚠️ Prompt too long (${tokenCount} tokens). Please shorten it.`);
+      return;
+    }
+
+    // Stream response
+    try {
+      stream.progress('🔍 Connecting to Grok...');
+      
+      const response = await openai.chat.completions.create({
+        model: 'grok-2-1212',
+        messages: [{ role: 'user', content: fullPrompt }],
+        max_tokens: 2000,
+        temperature: 0.7,
+        stream: true,
+      });
+
+      let fullResponse = '';
+      let hasContent = false;
+      
+      for await (const chunk of response) {
+        if (token.isCancellationRequested) return;
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          if (!hasContent) {
+            stream.progress('📝 Receiving response...');
+            hasContent = true;
+          }
+          fullResponse += content;
+          stream.markdown(content); // Stream to chat
+        }
+      }
+
+      if (!hasContent) {
+        stream.markdown('⚠️ No response received from Grok. Please try again.');
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      stream.markdown(`❌ **Error**: ${errorMsg}\n\nPlease check your API key and try again.`);
+    }
+  }
+}
+
+// Register chat participant
+function registerChatParticipant(context: vscode.ExtensionContext) {
+  const grokParticipant = new GrokChatParticipant();
+  const participant = vscode.chat.createChatParticipant('grok-integration.grok', grokParticipant.requestHandler);
+  context.subscriptions.push(participant);
+}
+
+// segment6-commands.ts
+
+// Command: Ask Grok (basic query with selected code)
+async function askGrokCommand(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+  const code = editor.document.getText(editor.selection);
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Response', code, language, 'analyze');
+}
+
+// Command: Explain selected code (context menu)
+async function explainCodeCommand(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+  const code = editor.document.getText(editor.selection);
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Explanation', code, language, 'explain');
+}
+
+// Command: Review selected code (context menu)
+async function reviewCodeCommand(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+  const code = editor.document.getText(editor.selection);
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Review', code, language, 'review and suggest improvements for');
+}
+
+// Inline chat command (ask Grok in editor)
+async function askGrokInlineCommand(): Promise<void> {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  if (!apiKey) {
+    const action = await vscode.window.showErrorMessage(
+      '🔑 xAI API Key Required',
+      'Open Settings',
+      'Get API Key'
+    );
+    if (action === 'Open Settings') {
+      vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+    } else if (action === 'Get API Key') {
+      vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
+    }
+    return;
+  }
+  
+  await vscode.commands.executeCommand('workbench.action.chat.open');
+  await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', '@grok ');
+}
+
+// Edit with Grok command
+async function editWithGrokCommand(): Promise<void> {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  if (!apiKey) {
+    const action = await vscode.window.showErrorMessage(
+      '🔑 xAI API Key Required',
+      'Open Settings',
+      'Get API Key'
+    );
+    if (action === 'Open Settings') {
+      vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+    } else if (action === 'Get API Key') {
+      vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
+    }
+    return;
+  }
+
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor.');
+    return;
+  }
+
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection).trim();
+  
+  if (!selectedText && selection.isEmpty) {
+    await vscode.commands.executeCommand('inlineChat.start');
+    return;
+  }
+
+  await vscode.commands.executeCommand('workbench.action.chat.open');
+  
+  const prompt = `@grok Please help me edit this ${editor.document.languageId} code:\n\n\`\`\`${editor.document.languageId}\n${selectedText}\n\`\`\`\n\nWhat would you like me to do with this code?`;
+  await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', prompt);
+}
+
+// Debug test command
+async function debugTestCommand(): Promise<void> {
+  console.log('Debug test triggered');
+  vscode.window.showInformationMessage('Debug test successful');
+}
+
+// Test connection command
+async function testConnectionCommand(): Promise<void> {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  
+  if (!apiKey) {
+    const action = await vscode.window.showErrorMessage(
+      '🔑 API Key Required',
+      'Open Settings',
+      'Get API Key'
+    );
+    if (action === 'Open Settings') {
+      vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+    } else if (action === 'Get API Key') {
+      vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/'));
+    }
+    return;
+  }
+
+  vscode.window.withProgress({
+    location: vscode.ProgressLocation.Notification,
+    title: "Testing Grok API Connection...",
+    cancellable: false
+  }, async (progress) => {
+    progress.report({ increment: 20, message: "Connecting..." });
+    
+    const success = await testGrokConnection(apiKey);
+    
+    progress.report({ increment: 80, message: "Verifying response..." });
+    
+    if (success) {
+      vscode.window.showInformationMessage('✅ Grok API Connection Successful! Ready to use @grok in chat.');
+    } else {
+      const action = await vscode.window.showErrorMessage(
+        '❌ Connection Failed: Please check your API key',
+        'Check API Key',
+        'Get Help'
+      );
+      
+      if (action === 'Check API Key') {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'grokIntegration.apiKey');
+      } else if (action === 'Get Help') {
+        vscode.env.openExternal(vscode.Uri.parse('https://platform.x.ai/docs'));
+      }
+    }
+  });
+}
+
+// segment7-upload-token.ts
+
+// Command: Upload files (preview and basic upload to API)
+async function uploadFilesCommand(): Promise<void> {
+  const files = await vscode.window.showOpenDialog({ canSelectMany: true, canSelectFolders: false });
+  if (!files) return;
+
+  let content = '';
+  for (const file of files) {
+    const fileContent = fs.readFileSync(file.fsPath, 'utf8');
+    content += `File: ${path.basename(file.fsPath)}\n${fileContent}\n\n`;
+  }
+
+  // Preview (TODO: Integrate actual upload to Grok API if endpoint supports)
+  const preview = await vscode.window.showInformationMessage('File contents preview:\n' + content.substring(0, 200) + '...', 'Upload', 'Cancel');
+  if (preview === 'Upload') {
+    // Placeholder: Send to API (adapt processGrokRequest)
+    vscode.window.showInformationMessage('Files uploaded to Grok (simulated).');
+  }
+}
+
+// Command: Show token count for selection
+async function showTokenCountCommand(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+  const text = editor.document.getText(editor.selection);
+  const tokenCount = estimateTokens(text);
+  vscode.window.showInformationMessage(`Estimated tokens: ${tokenCount}`);
+}
+// segment8-activation.ts
+
+export async function activate(context: vscode.ExtensionContext) {
+  console.log('🚀 Grok Integration: Starting activation...');
+  
+  try {
+    // Check license on activation
+    const isLicensed = await checkLicenseStatus(context);
+    if (!isLicensed) {
+      console.log('❌ License check failed during activation');
+    }
+
+    // Register chat participant with correct ID and proper configuration
+    console.log('📝 Registering chat participant...');
+    const grokParticipant = new GrokChatParticipant();
+    const participant = vscode.chat.createChatParticipant('grok-integration.grok', grokParticipant.requestHandler);
+    
+    // Configure participant properties
+    participant.iconPath = new vscode.ThemeIcon('robot');
+    participant.followupProvider = {
+      provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken) {
+        return [
+          {
+            prompt: 'Explain this in more detail',
+            label: '🔍 More details',
+            command: 'explain'
+          },
+          {
+            prompt: 'Show me an example',
+            label: '💡 Show example'
+          },
+          {
+            prompt: 'How can I improve this code?',
+            label: '⚡ Improve code',
+            command: 'review'
+          }
+        ];
+      }
+    };
+    
+    context.subscriptions.push(participant);
+    console.log('✅ Chat participant registered successfully');
+
+    // Register commands with correct IDs matching package.json
+    console.log('🔧 Registering commands...');
+    const commands = [
+      vscode.commands.registerCommand('grok-integration.askGrok', () => askGrokCommand(context)),
+      vscode.commands.registerCommand('grok-integration.explainCode', () => explainCodeCommand(context)),
+      vscode.commands.registerCommand('grok-integration.reviewCode', () => reviewCodeCommand(context)),
+      vscode.commands.registerCommand('grok-integration.askGrokInline', askGrokInlineCommand),
+      vscode.commands.registerCommand('grok-integration.editWithGrok', editWithGrokCommand),
+      vscode.commands.registerCommand('grok-integration.enterLicenseKey', enterLicenseKeyCommand),
+      vscode.commands.registerCommand('grok-integration.checkLicense', () => checkLicenseStatus(context)),
+      vscode.commands.registerCommand('grok-integration.purchaseLicense', () => vscode.env.openExternal(vscode.Uri.parse('https://example.com/purchase'))),
+      vscode.commands.registerCommand('grok-integration.uploadFiles', uploadFilesCommand),
+      vscode.commands.registerCommand('grok-integration.showTokenCount', showTokenCountCommand),
+      vscode.commands.registerCommand('grok-integration.debugTest', debugTestCommand),
+      vscode.commands.registerCommand('grok-integration.testConnection', testConnectionCommand),
+      vscode.commands.registerCommand('grok-integration.securityFix', () => securityFixCommand(context))
+    ];
+
+    // Register context menu items with correct IDs
+    context.subscriptions.push(
+      vscode.commands.registerCommand('grok-integration.explainCodeContext', () => explainCodeCommand(context)),
+      vscode.commands.registerCommand('grok-integration.reviewCodeContext', () => reviewCodeCommand(context))
+    );
+
+    // Push all to subscriptions
+    commands.forEach(cmd => context.subscriptions.push(cmd));
+
+    console.log('✅ All commands registered successfully');
+    console.log('🎉 Grok Integration extension activated successfully!');
+    
+    // Show success message
+    vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
+    
+  } catch (error) {
+    console.error('❌ Extension activation failed:', error);
+    vscode.window.showErrorMessage(`Failed to activate Grok Integration: ${error}`);
+  }
+}
+
+async function securityFixCommand(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor. Please select code to analyze.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection);
+  if (!code) {
+    vscode.window.showErrorMessage('No code selected. Please select code to analyze.');
+    return;
+  }
+  const language = editor.document.languageId;
+
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  if (!apiKey) {
+    vscode.window.showErrorMessage('Please set your xAI API key in settings.');
+    return;
+  }
+
+  if (!(await checkLicenseStatus(context))) return;
+
+  const panel = vscode.window.createWebviewPanel(
+    'grokSecurityFix',
+    'Grok Security Fix',
+    vscode.ViewColumn.Beside,
+    { enableScripts: true }
+  );
+  panel.webview.html = getLoadingHTML();
+
+  // Use Grok to suggest security fixes for the selected code
+  await processGrokRequest(panel, code, language, 'find and suggest security fixes for', apiKey);
+}
+
+export function deactivate() {
+  // Cleanup (e.g., clear globals or storage if needed)
+  console.log('Grok Integration extension deactivated.');
 }
