@@ -4,7 +4,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
-import { encode } from 'gpt-tokenizer';
 
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -461,6 +460,20 @@ async function securityFixCommand(context: vscode.ExtensionContext): Promise<voi
   await processGrokRequest(panel, code, language, 'find and suggest security fixes for', apiKey);
 }
 
+// Tokenization function
+
+async function tokenizeText(text: string) {
+  try {
+    // Load a tokenizer pipeline (e.g., for BERT)
+    const tokenizer = await pipeline('tokenization', 'Xenova/bert-base-uncased');
+    const tokens = await tokenizer(text);
+    console.log('Tokens:', tokens); // Outputs tokenized array
+    return tokens;
+  } catch (error) {
+    console.error('Tokenization error:', error);
+  }
+}
+
 // Activation
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -520,12 +533,17 @@ export async function activate(context: vscode.ExtensionContext) {
     // Show success message
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
     
+    // Test tokenization
+    tokenizeText('Hello, world! This is a test.').then(tokens => {
+      vscode.window.showInformationMessage(`Tokenized: ${JSON.stringify(tokens)}`);
+    });
+    
   } catch (error) {
     console.error('❌ Extension activation failed:', error);
     vscode.window.showErrorMessage(`Failed to activate Grok Integration: ${error}`);
-} }
+  }
 }
+
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
-} console.log('🛑 Grok Integration extension deactivating...');
 }
