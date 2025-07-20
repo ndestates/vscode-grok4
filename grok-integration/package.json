@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.4.1",
+  "version": "1.402.2",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -59,21 +59,6 @@
         "description": "Verify that your xAI API key is working and Grok AI is accessible"
       },
       {
-        "command": "grok-integration.enterLicenseKey",
-        "title": "🔑 Grok: Enter License Key",
-        "description": "Enter your Grok Integration license key to activate the extension"
-      },
-      {
-        "command": "grok-integration.checkLicense",
-        "title": "✅ Grok: Check License Status",
-        "description": "Verify your current license status and validity"
-      },
-      {
-        "command": "grok-integration.purchaseLicense",
-        "title": "💳 Grok: Purchase License",
-        "description": "Get information about purchasing a full license or reset to demo key"
-      },
-      {
         "command": "grok-integration.debugTest",
         "title": "🔧 Grok: Debug Extension",
         "description": "Test extension functionality and troubleshoot any issues"
@@ -82,14 +67,12 @@
         "command": "grok-integration.securityFix",
         "title": "🛡️ Grok: Propose Security Fix",
         "description": "Analyze selected code for security vulnerabilities and propose specific fixes"
-      }
-      ,
+      },
       {
         "command": "grok-integration.showTokenCount",
         "title": "🔢 Grok: Show Token Count",
         "description": "Display the estimated token count for your selected code in a webview panel"
-      }
-      ,
+      },
       {
         "command": "grok-integration.uploadFiles",
         "title": "📂 Grok: Upload Files for Analysis",
@@ -182,14 +165,6 @@
           "scope": "application",
           "markdownDescription": "Your xAI API key for accessing Grok AI. **Get your API key:** [platform.x.ai](https://platform.x.ai/)"
         },
-        "grokIntegration.licenseKey": {
-          "type": "string",
-          "default": "GI-DEMO1234-ABCD5678-EFGH9012",
-          "description": "📄 Your Grok Integration license key (demo key included for trial use)",
-          "scope": "application",
-          "markdownDescription": "Your Grok Integration license key. **Demo key included** for trial use. Contact support for full license."
-        }
-        ,
         "grokIntegration.maxTokens": {
           "type": "number",
           "default": 9000,

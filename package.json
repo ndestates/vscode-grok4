@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "linkedom": "^0.18.11",
     "openai": "^5.9.0"
   },
   "devDependencies": {
