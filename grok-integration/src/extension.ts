@@ -20,9 +20,25 @@ function redactSecrets(text: string): string {
   return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
 }
 
+/**
+ * Estimates the number of tokens in the given text using a simple heuristic.
+ * This is approximate (not exact tokenization) and synchronous.
+ * For English text, it's roughly accurate for models like GPT/Grok.
+ * @param text The input string to estimate tokens for.
+ * @returns Estimated token count (number).
+ */
 function estimateTokens(text: string): number {
-  const tokens = encode(text);
-  return tokens.length;
+  if (!text) return 0; // Handle empty input
+
+  // Remove extra whitespace for a cleaner estimate
+  const cleanedText = text.trim().replace(/\s+/g, ' ');
+
+  // Heuristic: ~4 chars per token (adjust based on your model's avg if known)
+  const charCount = cleanedText.length;
+  const estimatedTokens = Math.ceil(charCount / 4); // Round up for safety
+
+  // Add a small buffer for punctuation/subwords (e.g., +10% adjustment)
+  return Math.ceil(estimatedTokens * 1.1);
 }
 
 async function getWorkspaceContext(): Promise<string> {
