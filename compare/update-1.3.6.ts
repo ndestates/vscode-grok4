@@ -1,6 +1,4 @@
-// segment1-imports.ts
-
-import * as vscode from 'vscode';
+/import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import * as crypto from 'crypto';
 import * as path from 'path';
