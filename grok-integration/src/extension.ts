@@ -94,7 +94,7 @@ async function testGrokConnection(apiKey: string): Promise<boolean> {
     const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
     
     const response = await openai.chat.completions.create({
-      model: 'grok-4-latest',
+      model: 'grok-4-0709',
       messages: [{ role: 'user', content: 'Hi' }],
       max_tokens: 3,
       temperature: 0.1
@@ -241,7 +241,7 @@ class GrokChatParticipant implements vscode.ChatParticipant {
       stream.progress('🔍 Connecting to Grok...');
       
       const response = await openai.chat.completions.create({
-        model: 'grok-4-latest',
+        model: 'grok-4-0709',
         messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 9000,
         temperature: 0.5,
