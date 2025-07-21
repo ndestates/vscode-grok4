@@ -14,13 +14,19 @@ const config = {
   externals: {
     vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded
     // Add canvas as external to prevent webpack warnings
-    canvas: 'commonjs canvas'
+    canvas: 'commonjs canvas',
+    // Exclude native modules that can't be bundled
+    'onnxruntime-node': 'commonjs onnxruntime-node',
+    'sharp': 'commonjs sharp',
+    '@xenova/transformers': 'commonjs @xenova/transformers'
   },
   resolve: {
     extensions: ['.ts', '.js'],
     // Ignore optional canvas dependency
     fallback: {
-      "canvas": false
+      "canvas": false,
+      "fs": false,
+      "path": false
     }
   },
   module: {
@@ -33,6 +39,10 @@ const config = {
             loader: 'ts-loader'
           }
         ]
+      },
+      {
+        test: /\.node$/,
+        use: 'node-loader',
       }
     ]
   },

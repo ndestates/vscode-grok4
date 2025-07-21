@@ -2,15 +2,15 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
+## 🚀 New in v1.4.9
 
-## 🚀 New in v1.3.0
-
-- � **Security & Privacy Refactor**: License key is now stored in VS Code settings (not SecretStorage). All license management is configuration-based for transparency and portability.
-- � **Rate Limiting**: Prevents more than 5 Grok API calls per minute to avoid accidental overuse and improve stability.
-- 🧠 **Higher max_tokens**: Grok API calls now use up to 9000 tokens for longer, more complete answers.
-- 🛡️ **Safer Error Handling**: Improved error messages and handling for unknown errors and API/network issues.
-- 🛠️ **Modernized Codebase**: Refactored for maintainability, security, and future features. Removed legacy SecretStorage code.
-- 📝 **README & Docs Updated**: Installation, build, and usage instructions improved for ddev and VSIX workflows.
+- 🧠 **Updated Model**: Now using the latest `grok-4-0709` model for improved performance and responses
+- 🛡️ **Streamlined Experience**: Simplified setup with direct API key configuration
+- 🔧 **Rate Limiting**: Prevents more than 30 Grok API calls per minute to avoid accidental overuse and improve stability
+- 🧠 **Higher max_tokens**: Grok API calls now use up to 9000 tokens for longer, more complete answers
+- 🛡️ **Safer Error Handling**: Improved error messages and handling for unknown errors and API/network issues
+- 🛠️ **Modernized Codebase**: Refactored for maintainability and future features
+- 📝 **README & Docs Updated**: Installation, build, and usage instructions improved for ddev and VSIX workflows
 
 ---
 
@@ -31,110 +31,103 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 
 ### 3. Configure the Extension
 1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for "grok integration"
-3. Paste your API key in "Grok Integration: Api Key"
+2. Search for "Grok Integration"
+3. Paste your API key in the "Api Key" field
+4. You're ready to go!
 
-### 4. Start Using Grok!
-- Open the Chat panel: `Ctrl+Alt+I` (or `Cmd+Alt+I` on Mac)
-- Type: `@grok Hello!`
-- Press Enter and watch Grok respond!
+## 💬 Using Grok Chat
 
-### 💬 Chat with Grok
-Use `@grok` in the VS Code chat panel alongside other AI assistants:
-- `@grok How do I optimize this React component?`
-- `@grok Explain async/await in JavaScript`
-- `@grok What's the best way to handle errors in Python?`
+Type `@grok` in any VS Code chat window to start chatting with Grok AI:
 
-### 🔧 Quick Actions
-- **Ask Questions**: `Ctrl+Shift+G` / `Cmd+Shift+G` - Instant access to Grok
-- **Edit Code**: `Ctrl+Shift+E` / `Cmd+Shift+E` - Get help editing selected code
-- **Upload Files**: Use the Command Palette or right-click and select "📂 Grok: Upload Files for Analysis" to send multiple files or folders for review or analysis
-- **Show Token Count**: Right-click selected code and choose "🔢 Grok: Show Token Count" to estimate token usage
-- **Right-click menus**: Select code and right-click for "Explain", "Review", "Security Fix", "Show Token Count", or "Upload Files for Analysis"
+- `@grok explain this function` - Get detailed code explanations
+- `@grok /review` - Comprehensive code review with suggestions
+- `@grok /debug` - Help debugging issues and bugs
+- `@grok /optimize` - Performance optimization recommendations
+- `@grok /security` - Security analysis and vulnerability detection
 
-### 🎯 Specialized Commands
-When chatting with `@grok`, use these slash commands:
-- `/explain` - Get detailed code explanations
-- `/review` - Code review and quality suggestions
-- `/debug` - Help finding and fixing bugs
-- `/refactor` - Improve code structure
-- `/test` - Generate unit tests
-- `/optimize` - Performance improvements
+## 🎯 Features
 
-## 🎁 Features
+### Chat Commands
+- **`@grok /explain`** - Get detailed explanations of code functionality
+- **`@grok /review`** - Comprehensive code review with best practices
+- **`@grok /debug`** - Expert debugging assistance
+- **`@grok /refactor`** - Smart refactoring suggestions
+- **`@grok /test`** - Generate unit tests with edge cases
+- **`@grok /optimize`** - Performance optimization recommendations
+- **`@grok /security`** - Security analysis and vulnerability detection
 
-✅ **Real-time streaming responses** - See Grok's answers as they're typed  
-✅ **Context aware** - Grok understands your selected code and conversation history  
-✅ **Smart follow-ups** - Get suggested next questions  
-✅ **Multiple ways to interact** - Chat panel, keyboard shortcuts, or context menus  
-✅ **Demo license included** - Start using immediately, no purchase required  
+### Right-Click Menu Options
+- **Explain Selected Code** - Get detailed explanations
+- **Review Selected Code** - Quality analysis and suggestions
+- **Security Fix** - Analyze for vulnerabilities
+- **Show Token Count** - Estimate API usage
 
-## 🧮 Token Usage & Limits
+### Keyboard Shortcuts
+- **`Ctrl+Shift+G`** (`Cmd+Shift+G` on Mac) - Open Grok chat
+- **`Ctrl+Shift+E`** (`Cmd+Shift+E` on Mac) - Edit selected code with Grok
 
-Grok responses are limited by the `maxTokens` setting (default: 3000). The extension estimates token usage before sending requests and will prompt you if your request is too large. You can adjust `maxTokens` in the extension settings. **Tip:** 1 token ≈ 4 characters.
+## 🛠️ Commands
 
-## 🛠️ Troubleshooting
+Access these commands via the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
 
-**"Please set your xAI API key" error?**
-- Go to Settings (`Ctrl+,`), search "grok integration", add your API key
+- **Grok: Ask About Selected Code** - Get AI insights about your code
+- **Grok: Open Chat** - Start a conversation with Grok
+- **Grok: Edit Code** - Use Grok to modify your code
+- **Grok: Explain Selected Code** - Get detailed explanations
+- **Grok: Review Selected Code** - Code quality analysis
+- **Grok: Test API Connection** - Verify your API key works
+- **Grok: Show Token Count** - Check estimated token usage
 
-**Can't find the settings?**
-- Try searching "grok integration" instead of just "grok"
+## ⚙️ Configuration
 
-**Extension not responding?**
-- Press `Ctrl+Shift+P` → type "Check License Status"
-- Restart VS Code if needed
+Configure the extension in VS Code Settings:
 
-**Need help?**
-- The extension includes a demo license - no purchase needed to get started
-- Visit our [GitHub repository](https://github.com/ndestates/vscode-grok4) for support
+- **`grokIntegration.apiKey`** - Your xAI API key
+- **`grokIntegration.maxTokens`** - Maximum tokens per request (default: 9000)
 
-## � Development
+## 🔧 Development
 
 ### Building from Source
 
-If you want to build the extension from source code:
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Build the extension: `npm run package`
+4. Create VSIX: `npx @vscode/vsce package`
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ndestates/vscode-grok4.git
-   cd vscode-grok4/grok-integration
-   ```
+### Using with DDEV
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+```bash
+# Start ddev environment
+ddev start
 
-3. **Compile TypeScript**:
-   ```bash
-   npm run compile
-   ```
+# Install dependencies
+ddev exec npm install
 
-4. **Package the extension**:
-   ```bash
-   npm install -g vsce
-   vsce package
-   ```
+# Build the extension
+ddev exec npm run package
 
-5. **Install the generated VSIX**:
-   ```bash
-   code --install-extension grok-integration-*.vsix
-   ```
+# Create VSIX package
+ddev exec npx --yes @vscode/vsce package
+```
 
-### Development Setup
+## 📝 Usage Tips
 
-For active development:
+1. **Select code** before using context menu commands for best results
+2. **Use specific prompts** in chat for more targeted assistance
+3. **Check token count** for large code selections to manage API usage
+4. **Test your connection** if you experience issues
 
-1. Open the project in VS Code
-2. Press `F5` to launch a new Extension Development Host window
-3. Test your changes in the development instance
-4. Use `npm run compile` to rebuild after making changes
+## 🐛 Troubleshooting
 
-## �📝 License
+- **No response from Grok**: Check your API key in settings
+- **Rate limit errors**: Wait a minute between requests
+- **Token limit warnings**: Select smaller code sections or increase max tokens
+- **Connection issues**: Use "Test API Connection" command to verify setup
 
-This extension includes a demo license for immediate use. For extended features, a full license is available.
+## 📄 License
+
+See LICENSE file for details.
 
 ---
 
-**Made with ❤️ for developers who love AI-powered coding**
+Happy coding with Grok! 🚀
