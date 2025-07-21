@@ -4,6 +4,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
+// Import the pipeline function from Transformers.js
+import { pipeline } from '@xenova/transformers';
 
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -477,16 +479,16 @@ async function securityFixCommand(context: vscode.ExtensionContext): Promise<voi
 }
 
 // Tokenization function
-
-async function tokenizeText(text: string) {
+async function tokenizeText(text: string): Promise<any> {  // Adjust 'any' to a more specific type if possible (e.g., from library docs)
   try {
-    // Load a tokenizer pipeline (e.g., for BERT)
-    const tokenizer = await pipeline('tokenization', 'Xenova/bert-base-uncased');
+    // Load a feature-extraction pipeline (e.g., for BERT)
+    const tokenizer = await pipeline('feature-extraction', 'Xenova/bert-base-uncased');
     const tokens = await tokenizer(text);
     console.log('Tokens:', tokens); // Outputs tokenized array
     return tokens;
   } catch (error) {
     console.error('Tokenization error:', error);
+    throw error;  // Re-throw to propagate the error (or return null/empty array if preferred)
   }
 }
 
