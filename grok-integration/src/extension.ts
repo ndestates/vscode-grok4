@@ -120,7 +120,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     }
 
     const stream = await openai.chat.completions.create({
-      model: 'grok-4-latest',
+      model: 'grok-4-0709',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 9000,
       temperature: 0.5,
