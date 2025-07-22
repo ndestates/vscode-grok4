@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import OpenAI from 'openai'; // This import is missing!
+import OpenAI from 'openai';
 import * as path from 'path';
 import * as fs from 'fs';
 import createDOMPurify from 'dompurify';
@@ -26,7 +26,9 @@ function redactSecrets(text: string): string {
  * Estimates the number of tokens in the given text using a simple heuristic.
  * This is approximate (not exact tokenization) and synchronous.
  * For English text, it's roughly accurate for models like GPT/Grok.
-  */
+ * @param text The input string to estimate tokens for.
+ * @returns Estimated token count (number).
+ */
 function estimateTokens(text: string): number {
   if (!text) return 0; // Handle empty input
 
@@ -181,12 +183,11 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 // Chat participant
 
 class GrokChatParticipant implements vscode.ChatParticipant {
-  private _onDidReceiveFeedbackEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
-  
   requestHandler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
     await this.handleRequest(request, stream, token);
   };
-  
+
+  private _onDidReceiveFeedbackEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
   onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._onDidReceiveFeedbackEmitter.event;
   followupProvider?: vscode.ChatFollowupProvider | undefined;
   dispose(): void {
@@ -281,7 +282,7 @@ class GrokChatParticipant implements vscode.ChatParticipant {
 
 async function askGrokCommand(context: vscode.ExtensionContext): Promise<void> {
   const editor = vscode.window.activeTextEditor;
-  if (!editor) return; // Add this missing return check
+  if (!editor) return;
   const code = editor.document.getText(editor.selection);
   const language = editor.document.languageId;
   await showGrokPanel(context, 'Grok Response', code, language, 'analyze');
@@ -550,14 +551,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Show success message
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
     
-    // Comment out or wrap the tokenization test to prevent activation failure
-    /*
+    // Test tokenization
     tokenizeText('Hello, world! This is a test.').then(tokens => {
       vscode.window.showInformationMessage(`Tokenized: ${JSON.stringify(tokens)}`);
-    }).catch(error => {
-      console.error('Tokenization test failed:', error);
     });
-    */
     
   } catch (error) {
     console.error('❌ Extension activation failed:', error);

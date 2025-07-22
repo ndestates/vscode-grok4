@@ -1,0 +1,13 @@
+--- compare/extension-1.4.40.ts	2025-07-22 07:22:19.227922243 +0100
++++ compare/extension-1.4.9.ts	2025-07-22 07:22:19.232001175 +0100
+@@ -26,9 +26,7 @@
+  * Estimates the number of tokens in the given text using a simple heuristic.
+  * This is approximate (not exact tokenization) and synchronous.
+  * For English text, it's roughly accurate for models like GPT/Grok.
+- * @param text The input string to estimate tokens for.
+- * @returns Estimated token count (number).
+- */
++  */
+ function estimateTokens(text: string): number {
+   if (!text) return 0; // Handle empty input
+ 
