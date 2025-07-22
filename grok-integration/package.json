@@ -55,6 +55,11 @@
         "description": "Get code quality analysis with suggestions for improvements, best practices, and potential issues"
       },
       {
+        "command": "grok-integration.suggestImprovements",
+        "title": "💡 Grok: Suggest Improvements",
+        "description": "Get AI-powered suggestions to improve the selected code"
+      },
+      {
         "command": "grok-integration.testConnection",
         "title": "🔗 Grok: Test API Connection",
         "description": "Verify that your xAI API key is working and Grok AI is accessible"
@@ -84,7 +89,7 @@
       {
         "id": "grok-integration.grok",
         "name": "grok",
-        "description": "🤖 Grok AI - Your intelligent coding assistant for explanations, reviews, debugging, and optimization",
+        "description": "🤖 Direct AI assistance for code explanations, reviews, debugging, and optimization. Provides concise, professional answers.",
         "isSticky": true,
         "commands": [
           {
@@ -126,6 +131,10 @@
         },
         {
           "command": "grok-integration.reviewCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "grok-integration.suggestImprovements",
           "when": "editorHasSelection"
         },
         {

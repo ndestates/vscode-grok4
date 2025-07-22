@@ -182,8 +182,12 @@ export async function activate(context: vscode.ExtensionContext) {
         const redactedCode = redactSecrets(code);
         const workspaceContext = await getWorkspaceContext();
         const userPrompt = request.prompt || 'Hello';
-        const fullPrompt = `As Grok, ${action} this: ${userPrompt}\n\nCode (if any): ${redactedCode}\nLanguage: ${language}\nContext: ${workspaceContext}`;
-        const tokenCount = estimateTokens(fullPrompt);
+        
+        // New system prompt to ensure direct, professional responses
+        const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks, conversational filler, or off-topic comments. Focus strictly on the user\'s request.';
+        const userMessage = `${action} this: ${userPrompt}\n\nCode (if any): ${redactedCode}\nLanguage: ${language}\nContext: ${workspaceContext}`;
+        
+        const tokenCount = estimateTokens(systemMessage + userMessage);
         if (tokenCount > 8000) {
           stream.markdown(`⚠️ Prompt too long (${tokenCount} tokens). Please shorten it.`);
           return;
@@ -192,9 +196,12 @@ export async function activate(context: vscode.ExtensionContext) {
           stream.progress('🔍 Connecting to Grok...');
           const response = await openai.chat.completions.create({
             model: 'grok-4-0709',
-            messages: [{ role: 'user', content: fullPrompt }],
+            messages: [
+              { role: 'system', content: systemMessage },
+              { role: 'user', content: userMessage }
+            ],
             max_tokens: 9000,
-            temperature: 0.5,
+            temperature: 0.2, // Lowered temperature for more direct responses
             stream: true,
           });
           let fullResponse = '';
@@ -251,6 +258,14 @@ export async function activate(context: vscode.ExtensionContext) {
       const code = editor.document.getText(editor.selection);
       const language = editor.document.languageId;
       await showGrokPanel(context, 'Grok Review', code, language, 'review and suggest improvements for');
+    }
+
+    async function suggestImprovementsCommand(context: vscode.ExtensionContext): Promise<void> {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+      const code = editor.document.getText(editor.selection);
+      const language = editor.document.languageId;
+      await showGrokPanel(context, 'Grok Suggestions', code, language, 'suggest improvements for');
     }
 
     async function askGrokInlineCommand(): Promise<void> {
@@ -379,6 +394,7 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('grok-integration.askGrok', () => askGrokCommand(context)),
       vscode.commands.registerCommand('grok-integration.explainCode', () => explainCodeCommand(context)),
       vscode.commands.registerCommand('grok-integration.reviewCode', () => reviewCodeCommand(context)),
+      vscode.commands.registerCommand('grok-integration.suggestImprovements', () => suggestImprovementsCommand(context)),
       vscode.commands.registerCommand('grok-integration.askGrokInline', () => askGrokInlineCommand()),
       vscode.commands.registerCommand('grok-integration.editWithGrok', () => editWithGrokCommand()),
       vscode.commands.registerCommand('grok-integration.uploadFiles', () => uploadFilesCommand()),
