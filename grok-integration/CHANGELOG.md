@@ -2,6 +2,18 @@
 
 All notable changes to the "grok-integration" extension will be documented in this file.
 
+## [1.5.2] - 2025-07-22
+
+### Added
+- **Multi-File Chat Context**: You can now attach multiple files to a chat message using the `#file:` variable. Grok will use the content of these files to provide more accurate, context-aware responses and multi-file code amendments.
+- **User Consent for File Access**: For enhanced privacy, a modal dialog now prompts for explicit user consent before sending any attached file content to the xAI API.
+- **Token Limit Override**: When a request's estimated token count exceeds your configured limit, a warning dialog now gives you the option to "Proceed Anyway" for that specific request.
+- **Suggest Improvements Command**: Added a new "💡 Grok: Suggest Improvements" command to the right-click context menu for getting AI-powered code suggestions.
+
+### Improved
+- **AI Chat Instructions**: The system prompt sent to the Grok API has been refined to ensure responses are direct, professional, and concise, without conversational filler.
+- **Multi-File Response Clarity**: The AI is now instructed to clearly label which file each code suggestion belongs to when handling multi-file requests.
+
 ## [1.3.6] - 2025-07-17
 
 ### Fixed

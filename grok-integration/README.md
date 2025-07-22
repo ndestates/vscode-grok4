@@ -2,15 +2,13 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
-## 🚀 New in v1.4.9
+## 🚀 New in v1.5.2
 
-- 🧠 **Updated Model**: Now using the latest `grok-4-0709` model for improved performance and responses
-- 🛡️ **Streamlined Experience**: Simplified setup with direct API key configuration
-- 🔧 **Rate Limiting**: Prevents more than 30 Grok API calls per minute to avoid accidental overuse and improve stability
-- 🧠 **Higher max_tokens**: Grok API calls now use up to 9000 tokens for longer, more complete answers
-- 🛡️ **Safer Error Handling**: Improved error messages and handling for unknown errors and API/network issues
-- 🛠️ **Modernized Codebase**: Refactored for maintainability and future features
-- 📝 **README & Docs Updated**: Installation, build, and usage instructions improved for ddev and VSIX workflows
+-   **🧠 Enhanced Chat Context**: Attach multiple files to your chat prompts using `#file:` for project-aware answers and multi-file code edits.
+-   **🔒 User Consent**: The extension now asks for your permission before sending file contents to the API, putting you in control.
+-   **⚡ Token Limit Override**: Exceeding the token limit? A new dialog lets you proceed with large requests on a case-by-case basis.
+-   **💡 Suggest Improvements**: A new right-click command to get quick, actionable suggestions for your selected code.
+-   **🎯 Direct & Professional AI**: The AI is now instructed to provide concise, to-the-point answers without conversational filler.
 
 ---
 
@@ -37,9 +35,15 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 
 ## 💬 Using Grok Chat
 
-Type `@grok` in any VS Code chat window to start chatting with Grok AI:
+Type `@grok` in any VS Code chat window to start chatting with Grok AI.
 
-- `@grok explain this function` - Get detailed code explanations
+### Providing Context with Files
+You can provide the content of one or more files to Grok for more accurate, context-aware answers. Simply type `#file:` and select a file from the picker.
+
+**Example:**
+`@grok #file:src/extension.ts #file:package.json Please add a new command and update the version.`
+
+### Using Slash Commands
 - `@grok /review` - Comprehensive code review with suggestions
 - `@grok /debug` - Help debugging issues and bugs
 - `@grok /optimize` - Performance optimization recommendations
@@ -59,6 +63,7 @@ Type `@grok` in any VS Code chat window to start chatting with Grok AI:
 ### Right-Click Menu Options
 - **Explain Selected Code** - Get detailed explanations
 - **Review Selected Code** - Quality analysis and suggestions
+- **Suggest Improvements** - Get AI-powered suggestions to improve the selected code
 - **Security Fix** - Analyze for vulnerabilities
 - **Show Token Count** - Estimate API usage
 
@@ -75,6 +80,7 @@ Access these commands via the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
 - **Grok: Edit Code** - Use Grok to modify your code
 - **Grok: Explain Selected Code** - Get detailed explanations
 - **Grok: Review Selected Code** - Code quality analysis
+- **Grok: Suggest Improvements** - Get AI-powered code suggestions
 - **Grok: Test API Connection** - Verify your API key works
 - **Grok: Show Token Count** - Check estimated token usage
 
@@ -114,14 +120,15 @@ ddev exec npx --yes @vscode/vsce package
 
 1. **Select code** before using context menu commands for best results
 2. **Use specific prompts** in chat for more targeted assistance
-3. **Check token count** for large code selections to manage API usage
-4. **Test your connection** if you experience issues
+3. **Attach files with `#file:`** to give Grok more context for complex questions.
+4. **Check token count** for large code selections to manage API usage
+5. **Test your connection** if you experience issues
 
 ## 🐛 Troubleshooting
 
 - **No response from Grok**: Check your API key in settings
 - **Rate limit errors**: Wait a minute between requests
-- **Token limit warnings**: Select smaller code sections or increase max tokens
+- **Token limit warnings**: Select smaller code sections, increase max tokens, or use the "Proceed Anyway" option when prompted.
 - **Connection issues**: Use "Test API Connection" command to verify setup
 
 ## 📄 License
