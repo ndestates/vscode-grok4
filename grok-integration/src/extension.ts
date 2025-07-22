@@ -176,22 +176,76 @@ export async function activate(context: vscode.ExtensionContext) {
         if (request.command === 'explain') action = 'explain';
         else if (request.command === 'review') action = 'review and suggest improvements for';
         else if (request.command === 'debug') action = 'debug';
+
+        // --- Build context from attached files and active editor ---
+        let fullContext = '';
+
+        // 1. Get context from explicitly attached files (#file references)
+        if (request.context && request.context.variables) {
+          const fileVariables = request.context.variables.filter(v => v.value instanceof vscode.Uri);
+
+          if (fileVariables.length > 0) {
+            const fileNames = fileVariables.map(v => path.basename((v.value as vscode.Uri).fsPath)).join(', ');
+            const consent = await vscode.window.showInformationMessage(
+              `Do you consent to sending the content of the following file(s) to the xAI API?\n\n- ${fileNames}`,
+              { modal: true },
+              'Yes, Send Content'
+            );
+
+            if (consent !== 'Yes, Send Content') {
+              stream.markdown('Request cancelled. Consent to send file content was not given.');
+              return;
+            }
+
+            // User consented, proceed to read files
+            for (const variable of fileVariables) {
+              try {
+                const uri = variable.value as vscode.Uri;
+                const contentBytes = await vscode.workspace.fs.readFile(uri);
+                const content = Buffer.from(contentBytes).toString('utf8');
+                const relativePath = vscode.workspace.asRelativePath(uri);
+                fullContext += `\n\n--- FILE: ${relativePath} ---\n${content}\n--- END FILE ---`;
+              } catch (e) {
+                console.error(`Failed to read file context for URI: ${(variable.value as vscode.Uri).toString()}`, e);
+                stream.markdown(`⚠️ Could not read file: ${vscode.workspace.asRelativePath(variable.value as vscode.Uri)}`);
+              }
+            }
+          }
+        }
+
+        // 2. Get context from the active editor's selection (if any)
         const editor = vscode.window.activeTextEditor;
-        const code = editor ? editor.document.getText(editor.selection) : '';
-        const language = editor ? editor.document.languageId : 'plaintext';
-        const redactedCode = redactSecrets(code);
-        const workspaceContext = await getWorkspaceContext();
+        const selectionCode = editor ? editor.document.getText(editor.selection) : '';
+        if (selectionCode) {
+            const language = editor.document.languageId;
+            fullContext += `\n\n--- ACTIVE SELECTION (${language}) ---\n${selectionCode}\n--- END SELECTION ---`;
+        }
+        // --- END NEW LOGIC ---
+
+        const redactedContext = redactSecrets(fullContext);
+        const workspaceInfo = await getWorkspaceContext();
         const userPrompt = request.prompt || 'Hello';
         
-        // New system prompt to ensure direct, professional responses
-        const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks, conversational filler, or off-topic comments. Focus strictly on the user\'s request.';
-        const userMessage = `${action} this: ${userPrompt}\n\nCode (if any): ${redactedCode}\nLanguage: ${language}\nContext: ${workspaceContext}`;
+        // Updated system prompt to handle multi-file context
+        const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`).';
+        const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
         
+        const maxTokens = config.get<number>('maxTokens') || 9000;
         const tokenCount = estimateTokens(systemMessage + userMessage);
-        if (tokenCount > 8000) {
-          stream.markdown(`⚠️ Prompt too long (${tokenCount} tokens). Please shorten it.`);
-          return;
+
+        if (tokenCount > maxTokens) {
+          const choice = await vscode.window.showWarningMessage(
+            `The request size is approximately ${tokenCount} tokens, which exceeds your configured limit of ${maxTokens}. Large requests may be slow, costly, or fail.`,
+            { modal: true },
+            'Proceed Anyway'
+          );
+
+          if (choice !== 'Proceed Anyway') {
+            stream.markdown('Request cancelled due to large token size.');
+            return;
+          }
         }
+
         try {
           stream.progress('🔍 Connecting to Grok...');
           const response = await openai.chat.completions.create({
