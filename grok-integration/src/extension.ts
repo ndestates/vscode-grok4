@@ -44,17 +44,123 @@ export async function activate(context: vscode.ExtensionContext) {
       return `
         <!DOCTYPE html>
         <html>
-        <body style="background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font-family: var(--vscode-font-family);">
+        <head>
+          <style>
+            body {
+              background: var(--vscode-editor-background);
+              color: var(--vscode-editor-foreground);
+              font-family: var(--vscode-font-family);
+              padding: 1em;
+            }
+            .action-bar {
+              position: sticky;
+              top: 0;
+              background: var(--vscode-editor-background);
+              padding-bottom: 10px;
+              border-bottom: 1px solid var(--vscode-side-bar-border);
+              margin-bottom: 10px;
+            }
+            .action-button {
+              cursor: pointer;
+              background: var(--vscode-button-background);
+              color: var(--vscode-button-foreground);
+              border: 1px solid var(--vscode-button-border);
+              border-radius: 3px;
+              padding: 4px 10px;
+            }
+            .action-button:hover {
+              background: var(--vscode-button-hover-background);
+            }
+            .code-block-wrapper {
+              position: relative;
+              background-color: var(--vscode-editor-background);
+              border: 1px solid var(--vscode-side-bar-border);
+              border-radius: 4px;
+              margin: 1em 0;
+            }
+            pre {
+              padding: 1em;
+              margin: 0;
+              white-space: pre-wrap;
+              word-wrap: break-word;
+            }
+            .copy-button {
+              position: absolute;
+              top: 5px;
+              right: 5px;
+              cursor: pointer;
+              background: var(--vscode-button-background);
+              color: var(--vscode-button-foreground);
+              border: 1px solid var(--vscode-button-border);
+              border-radius: 3px;
+              padding: 2px 6px;
+              opacity: 0.6;
+              transition: opacity 0.2s;
+            }
+            .copy-button:hover {
+              opacity: 1;
+            }
+            .copy-button:focus {
+              outline: 1px solid var(--vscode-focus-border);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="action-bar">
+            <button id="save-button" class="action-button" title="Save response as a Markdown file">💾 Save</button>
+          </div>
           <div id="content">🔍 Connecting to Grok... Please wait.</div>
           <script>
             (function() {
               const vscode = acquireVsCodeApi();
+              
+              document.getElementById('save-button').addEventListener('click', () => {
+                vscode.postMessage({ command: 'saveFile' });
+              });
+
+              function setupCopyButtons() {
+                const codeBlocks = document.querySelectorAll('pre code');
+                codeBlocks.forEach((codeBlock, index) => {
+                  let wrapper = codeBlock.parentNode;
+                  if (!wrapper.classList.contains('code-block-wrapper')) {
+                    wrapper = document.createElement('div');
+                    wrapper.className = 'code-block-wrapper';
+                    codeBlock.parentNode.insertBefore(wrapper, codeBlock);
+                    wrapper.appendChild(codeBlock);
+                  }
+
+                  // Remove old copy button if it exists
+                  const oldButton = wrapper.querySelector('.copy-button');
+                  if (oldButton) {
+                    oldButton.remove();
+                  }
+
+                  // Create new copy button
+                  const copyButton = document.createElement('div');
+                  copyButton.className = 'copy-button';
+                  copyButton.innerHTML = '📋';
+                  copyButton.title = 'Copy code to clipboard';
+                  copyButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const code = codeBlock.innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                      vscode.showInformationMessage('Code copied to clipboard!');
+                    }, (err) => {
+                      vscode.showErrorMessage('Failed to copy code: ' + err);
+                    });
+                  });
+                  wrapper.appendChild(copyButton);
+                });
+              }
+
               window.addEventListener('message', event => {
                 const message = event.data;
                 if (message.type === 'update') {
                   document.getElementById('content').innerHTML += message.content;
+                  setupCopyButtons(); // Setup copy buttons for new content
                 } else if (message.type === 'complete') {
                   document.getElementById('content').innerHTML = message.html;
+                  setupCopyButtons(); // Setup copy buttons for final content
                 }
               });
             })();
@@ -90,7 +196,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<void> {
+    async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<string | undefined> {
       try {
         const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
         const redactedCode = redactSecrets(code);
@@ -116,9 +222,11 @@ export async function activate(context: vscode.ExtensionContext) {
           }
         }
         panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
+        return fullResponse; // Return the raw markdown content
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
+        return `# Error\n\n${errorMsg}`; // Return error as markdown
       }
     }
 
@@ -146,30 +254,50 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
       panel.webview.html = getLoadingHTML();
-      await processGrokRequest(panel, code, language, action, apiKey);
+      
+      const rawMarkdownResponse = await processGrokRequest(panel, code, language, action, apiKey);
+
+      panel.webview.onDidReceiveMessage(
+        async message => {
+          if (message.command === 'saveFile') {
+            if (rawMarkdownResponse) {
+              const now = new Date();
+              const day = String(now.getDate()).padStart(2, '0');
+              const month = String(now.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+              const year = now.getFullYear();
+              const hours = String(now.getHours()).padStart(2, '0');
+              const minutes = String(now.getMinutes()).padStart(2, '0');
+              const seconds = String(now.getSeconds()).padStart(2, '0');
+              const timestamp = `${day}${month}${year}-${hours}${minutes}${seconds}`;
+              const filename = `${timestamp}-grok-response.md`;
+
+              const uri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.file(filename),
+                filters: { 'Markdown Files': ['md'] }
+              });
+              if (uri) {
+                await vscode.workspace.fs.writeFile(uri, Buffer.from(rawMarkdownResponse, 'utf8'));
+                vscode.window.showInformationMessage(`✅ Response saved to ${path.basename(uri.fsPath)}`);
+              }
+            } else {
+              vscode.window.showErrorMessage('No response content to save.');
+            }
+          }
+        },
+        undefined,
+        context.subscriptions
+      );
     }
 
     // Chat participant
-    class GrokChatParticipant implements vscode.ChatParticipant {
-      private _onDidReceiveFeedbackEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
-      requestHandler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
-        await this.handleRequest(request, stream, token);
-      };
-      onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._onDidReceiveFeedbackEmitter.event;
-      followupProvider?: vscode.ChatFollowupProvider | undefined;
-      dispose(): void {
-        this._onDidReceiveFeedbackEmitter.dispose();
-      }
-      id = 'grok-integration.grok';
-      displayName = 'Grok AI';
-      iconPath = new vscode.ThemeIcon('hubot');
-      async prepareRequest(request: vscode.ChatRequest, token: vscode.CancellationToken): Promise<void> {}
-      async handleRequest(request: vscode.ChatRequest, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void> {
+    // REFACTORED: Simplified to a handler object for the modern Chat API.
+    const chatHandler = {
+      async handleRequest(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> {
         const config = vscode.workspace.getConfiguration('grokIntegration');
         const apiKey = config.get<string>('apiKey');
         if (!apiKey) {
           stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
-          return;
+          return {}; // CORRECTED: Must return a ChatResult object
         }
         const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
         let action = 'respond to';
@@ -181,11 +309,16 @@ export async function activate(context: vscode.ExtensionContext) {
         let fullContext = '';
 
         // 1. Get context from explicitly attached files (#file references)
-        if (request.context && request.context.variables) {
-          const fileVariables = request.context.variables.filter(v => v.value instanceof vscode.Uri);
+        if (request.references && request.references.length > 0) {
+          const fileUris: vscode.Uri[] = [];
+          for (const ref of request.references) {
+            if (ref.value instanceof vscode.Uri) {
+              fileUris.push(ref.value);
+            }
+          }
 
-          if (fileVariables.length > 0) {
-            const fileNames = fileVariables.map(v => path.basename((v.value as vscode.Uri).fsPath)).join(', ');
+          if (fileUris.length > 0) {
+            const fileNames = fileUris.map(uri => path.basename(uri.fsPath)).join(', ');
             const consent = await vscode.window.showInformationMessage(
               `Do you consent to sending the content of the following file(s) to the xAI API?\n\n- ${fileNames}`,
               { modal: true },
@@ -194,20 +327,19 @@ export async function activate(context: vscode.ExtensionContext) {
 
             if (consent !== 'Yes, Send Content') {
               stream.markdown('Request cancelled. Consent to send file content was not given.');
-              return;
+              return {}; // CORRECTED: Must return a ChatResult object
             }
 
             // User consented, proceed to read files
-            for (const variable of fileVariables) {
+            for (const uri of fileUris) {
               try {
-                const uri = variable.value as vscode.Uri;
                 const contentBytes = await vscode.workspace.fs.readFile(uri);
                 const content = Buffer.from(contentBytes).toString('utf8');
                 const relativePath = vscode.workspace.asRelativePath(uri);
                 fullContext += `\n\n--- FILE: ${relativePath} ---\n${content}\n--- END FILE ---`;
               } catch (e) {
-                console.error(`Failed to read file context for URI: ${(variable.value as vscode.Uri).toString()}`, e);
-                stream.markdown(`⚠️ Could not read file: ${vscode.workspace.asRelativePath(variable.value as vscode.Uri)}`);
+                console.error(`Failed to read file context for URI: ${uri.toString()}`, e);
+                stream.markdown(`⚠️ Could not read file: ${vscode.workspace.asRelativePath(uri)}`);
               }
             }
           }
@@ -215,10 +347,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // 2. Get context from the active editor's selection (if any)
         const editor = vscode.window.activeTextEditor;
-        const selectionCode = editor ? editor.document.getText(editor.selection) : '';
-        if (selectionCode) {
-            const language = editor.document.languageId;
-            fullContext += `\n\n--- ACTIVE SELECTION (${language}) ---\n${selectionCode}\n--- END SELECTION ---`;
+        if (editor) {
+            const selectionCode = editor.document.getText(editor.selection);
+            if (selectionCode) {
+                const language = editor.document.languageId;
+                fullContext += `\n\n--- ACTIVE SELECTION (${language}) ---\n${selectionCode}\n--- END SELECTION ---`;
+            }
         }
         // --- END NEW LOGIC ---
 
@@ -226,8 +360,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const workspaceInfo = await getWorkspaceContext();
         const userPrompt = request.prompt || 'Hello';
         
-        // Updated system prompt to handle multi-file context
-        const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`).';
+        const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. For example:\n\`\`\`typescript\n// your typescript code here\n\`\`\`';
         const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
         
         const maxTokens = config.get<number>('maxTokens') || 9000;
@@ -242,7 +375,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
           if (choice !== 'Proceed Anyway') {
             stream.markdown('Request cancelled due to large token size.');
-            return;
+            return {}; // CORRECTED: Must return a ChatResult object
           }
         }
 
@@ -255,20 +388,20 @@ export async function activate(context: vscode.ExtensionContext) {
               { role: 'user', content: userMessage }
             ],
             max_tokens: 9000,
-            temperature: 0.2, // Lowered temperature for more direct responses
+            temperature: 0.2,
             stream: true,
           });
-          let fullResponse = '';
           let hasContent = false;
           for await (const chunk of response) {
-            if (token.isCancellationRequested) return;
+            if (token.isCancellationRequested) {
+              return {}; // CORRECTED: Must return a ChatResult object
+            }
             const content = chunk.choices[0]?.delta?.content || '';
             if (content) {
               if (!hasContent) {
                 stream.progress('📝 Receiving response...');
                 hasContent = true;
               }
-              fullResponse += content;
               stream.markdown(content);
             }
           }
@@ -279,8 +412,10 @@ export async function activate(context: vscode.ExtensionContext) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           stream.markdown(`❌ **Error**: ${errorMsg}\n\nPlease check your API key and try again.`);
         }
+        
+        return {}; // CORRECTED: Must return a ChatResult object at the end
       }
-    }
+    };
 
     // Commands
     async function askGrokCommand(context: vscode.ExtensionContext): Promise<void> {
@@ -388,17 +523,37 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     async function uploadFilesCommand(): Promise<void> {
-      const files = await vscode.window.showOpenDialog({ canSelectMany: true, canSelectFolders: false });
-      if (!files) return;
-      let content = '';
-      for (const file of files) {
-        const fileContent = fs.readFileSync(file.fsPath, 'utf8');
-        content += `File: ${path.basename(file.fsPath)}\n${fileContent}\n\n`;
+      // 1. Select files using the VS Code dialog
+      const files = await vscode.window.showOpenDialog({
+        canSelectMany: true,
+        canSelectFolders: false,
+        title: 'Select files to discuss with Grok'
+      });
+      if (!files || files.length === 0) {
+        return; // User cancelled the dialog
       }
-      const preview = await vscode.window.showInformationMessage('File contents preview:\n' + content.substring(0, 200) + '...', 'Upload', 'Cancel');
-      if (preview === 'Upload') {
-        vscode.window.showInformationMessage('Files uploaded to Grok (simulated).');
+
+      // 2. Ask for explicit user consent before reading any file content
+      const fileNames = files.map(file => path.basename(file.fsPath)).join(', ');
+      const consent = await vscode.window.showInformationMessage(
+        `Do you want to send the content of ${files.length} file(s) (${fileNames}) as context to Grok?`,
+        { modal: true },
+        'Yes, Continue to Chat'
+      );
+
+      if (consent !== 'Yes, Continue to Chat') {
+        vscode.window.showInformationMessage('Request cancelled. Consent to send file content was not given.');
+        return;
       }
+
+      // 3. Open the chat panel and pre-fill it with the selected file contexts
+      await vscode.commands.executeCommand('workbench.action.chat.open');
+      
+      // Build the file context string for the chat input
+      const fileContextString = files.map(file => `#file:${file.fsPath}`).join(' ');
+
+      // Insert the context and a prompt into the chat input
+      await vscode.commands.executeCommand('workbench.action.chat.insertAtCursor', `@grok ${fileContextString} \n\nPlease analyze these files.`);
     }
 
     async function showTokenCountCommand(): Promise<void> {
@@ -433,8 +588,8 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Register chat participant
-    const grokParticipant = new GrokChatParticipant();
-    const participant = vscode.chat.createChatParticipant('grok-integration.grok', grokParticipant.requestHandler);
+    // CORRECTED: Pass the function directly, not an object
+    const participant = vscode.chat.createChatParticipant('grok-integration.grok', chatHandler.handleRequest.bind(chatHandler));
     participant.iconPath = new vscode.ThemeIcon('hubot');
     participant.followupProvider = {
       provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken) {

@@ -51,8 +51,7 @@ cd /path/to/vscode-grok4
 ddev exec "cd grok-integration && vsce package"
 
 # Or locally (requires @vscode/vsce installed globally)
-npm install -g @vscode/vsce
-vsce package
+
 ```
 
 This will generate `grok-integration-1.0.0.vsix` (or current version) ready for installation.
