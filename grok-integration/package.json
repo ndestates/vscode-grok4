@@ -178,8 +178,8 @@
   "dependencies": {
     "openai": "^4.0.0",
     "dompurify": "^3.0.0",
-    "linkedom": "^0.16.0",
-    "@xenova/transformers": "^2.0.0"
+    "linkedom": "^0.16.0"
+  
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
