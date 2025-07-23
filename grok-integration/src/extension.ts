@@ -254,7 +254,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
       panel.webview.html = getLoadingHTML();
-      
+
       const rawMarkdownResponse = await processGrokRequest(panel, code, language, action, apiKey);
 
       panel.webview.onDidReceiveMessage(
@@ -305,10 +305,10 @@ export async function activate(context: vscode.ExtensionContext) {
         else if (request.command === 'review') action = 'review and suggest improvements for';
         else if (request.command === 'debug') action = 'debug';
 
-        // --- Build context from attached files and active editor ---
+        stream.markdown(`🔍 **Processing request**: ${action} the provided context...`);
         let fullContext = '';
 
-        // 1. Get context from explicitly attached files (#file references)
+
         if (request.references && request.references.length > 0) {
           const fileUris: vscode.Uri[] = [];
           for (const ref of request.references) {
@@ -318,19 +318,47 @@ export async function activate(context: vscode.ExtensionContext) {
           }
 
           if (fileUris.length > 0) {
-            const fileNames = fileUris.map(uri => path.basename(uri.fsPath)).join(', ');
-            const consent = await vscode.window.showInformationMessage(
-              `Do you consent to sending the content of the following file(s) to the xAI API?\n\n- ${fileNames}`,
-              { modal: true },
-              'Yes, Send Content'
-            );
+            try {
+              // Extract file names and format as a bulleted Markdown list for better readability
+              const fileNamesList = fileUris
+                .map(uri => `- ${path.basename(uri.fsPath)}`) // Fixed syntax: proper template literal for bullet
+                .join('\n');
 
-            if (consent !== 'Yes, Send Content') {
-              stream.markdown('Request cancelled. Consent to send file content was not given.');
-              return {}; // CORRECTED: Must return a ChatResult object
+              // Handle singular/plural for UX polish
+              const fileCount = fileUris.length;
+              const fileWord = fileCount === 1 ? 'file' : 'files';
+
+              // Constants for buttons and messages (easier to maintain/localize)
+              const YES_BUTTON = 'Yes, Send Content';
+              const NO_BUTTON = 'No, Cancel';
+              const PRIVACY_NOTE = '\n\nNote: File contents will be sent securely to the xAI API for processing. See our privacy policy for details.';
+
+              // Use showWarningMessage for emphasis on data sharing
+              const consent = await vscode.window.showWarningMessage(
+                `Do you consent to sending the content of the following ${fileWord} to the xAI API?${PRIVACY_NOTE}\n\n${fileNamesList}`,
+                { modal: true },
+                YES_BUTTON,
+                NO_BUTTON
+              );
+
+              // Optional: Handle the response explicitly (e.g., proceed or abort)
+              if (consent === YES_BUTTON) {
+                // Proceed with sending (not shown here)
+                vscode.window.showInformationMessage(`Sending ${fileCount} ${fileWord} to xAI... Buckle up!`);
+              } else if (consent === NO_BUTTON) {
+                vscode.window.showInformationMessage('Operation cancelled. Your files are safe with you.');
+                return {}; // Or throw/return early
+              }
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              vscode.window.showErrorMessage(`Error preparing file consent: ${errorMsg}`);
+              // Optional: Log to console or telemetry
+              console.error('File consent error:', error);
+              stream.markdown('An error occurred while preparing the consent prompt. Request aborted.');
+              return {};
             }
 
-            // User consented, proceed to read files
+
             for (const uri of fileUris) {
               try {
                 const contentBytes = await vscode.workspace.fs.readFile(uri);
@@ -348,21 +376,21 @@ export async function activate(context: vscode.ExtensionContext) {
         // 2. Get context from the active editor's selection (if any)
         const editor = vscode.window.activeTextEditor;
         if (editor) {
-            const selectionCode = editor.document.getText(editor.selection);
-            if (selectionCode) {
-                const language = editor.document.languageId;
-                fullContext += `\n\n--- ACTIVE SELECTION (${language}) ---\n${selectionCode}\n--- END SELECTION ---`;
-            }
+          const selectionCode = editor.document.getText(editor.selection);
+          if (selectionCode) {
+            const language = editor.document.languageId;
+            fullContext += `\n\n--- ACTIVE SELECTION (${language}) ---\n${selectionCode}\n--- END SELECTION ---`;
+          }
         }
-        // --- END NEW LOGIC ---
+
 
         const redactedContext = redactSecrets(fullContext);
         const workspaceInfo = await getWorkspaceContext();
         const userPrompt = request.prompt || 'Hello';
-        
+
         const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. For example:\n\`\`\`typescript\n// your typescript code here\n\`\`\`';
         const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
-        
+
         const maxTokens = config.get<number>('maxTokens') || 9000;
         const tokenCount = estimateTokens(systemMessage + userMessage);
 
@@ -412,7 +440,7 @@ export async function activate(context: vscode.ExtensionContext) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           stream.markdown(`❌ **Error**: ${errorMsg}\n\nPlease check your API key and try again.`);
         }
-        
+
         return {}; // CORRECTED: Must return a ChatResult object at the end
       }
     };
@@ -548,7 +576,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       // 3. Open the chat panel and pre-fill it with the selected file contexts
       await vscode.commands.executeCommand('workbench.action.chat.open');
-      
+
       // Build the file context string for the chat input
       const fileContextString = files.map(file => `#file:${file.fsPath}`).join(' ');
 
