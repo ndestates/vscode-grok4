@@ -27,8 +27,21 @@ export async function activate(context: vscode.ExtensionContext) {
       return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
     }
 
-    function estimateTokens(text: string): number {
-      return tokenizeText(text);
+    async function estimateTokens(text: string, files: string[] = []): Promise<number> {
+      let total = 0;
+      try {
+        total += (await tokenizeText(text)).length;
+        for (const file of files) {
+          const content = await fs.promises.readFile(file, 'utf-8');
+          total += (await tokenizeText(content)).length;
+        }
+        return total;
+      } catch {
+        // Fallback heuristic
+        const combined = [text, ...files.map(f => fs.readFileSync(f, 'utf-8'))].join(' ');
+        const cleaned = combined.trim().replace(/\s+/g, ' ');
+        return Math.ceil((cleaned.length / 4) * 1.1);
+      }
     }
 
     async function getWorkspaceContext(): Promise<string> {
@@ -198,7 +211,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
         const redactedCode = redactSecrets(code);
         const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
-        const tokenCount = estimateTokens(prompt);
+        const tokenCount = await estimateTokens(prompt);
         if (tokenCount > 8000) {
           panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
           return;
@@ -389,7 +402,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
 
         const maxTokens = config.get<number>('maxTokens') || 9000;
-        const tokenCount = estimateTokens(systemMessage + userMessage);
+        const tokenCount = await estimateTokens(systemMessage + userMessage);
 
         if (tokenCount > maxTokens) {
           const choice = await vscode.window.showWarningMessage(
@@ -585,7 +598,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
       const text = editor.document.getText(editor.selection);
-      const tokenCount = estimateTokens(text);
+      const tokenCount = await estimateTokens(text);
       vscode.window.showInformationMessage(`Estimated tokens: ${tokenCount}`);
     }
 
