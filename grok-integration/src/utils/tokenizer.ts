@@ -1,7 +1,3 @@
-// src/utils/tokenizer.ts
-// This file provides a precise tokenization function using the Tiktoken library,
-// which is compatible with OpenAI's GPT models for accurate token counting.
-
 import { Tiktoken } from '@dqbd/tiktoken';
 import { encoding_for_model } from '@dqbd/tiktoken';
 

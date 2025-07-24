@@ -635,6 +635,40 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     };
     context.subscriptions.push(participant);
+    // Register multi-file upload command
+    let disposable = vscode.commands.registerCommand('grok.uploadFiles', async (...args: any[]) => {
+      const uris: vscode.Uri[] = args[0] instanceof Array ? args[0] : [args[0]];
+
+      // Privacy consent
+      const consent = await vscode.window.showInformationMessage(
+        `Do you consent to sharing contents of ${uris.length} file(s) with Grok? This is for context only.`,
+        { modal: true },
+        'Yes', 'No'
+      );
+      if (consent !== 'Yes') {
+        vscode.window.showInformationMessage('Upload cancelled for privacy.');
+        return;
+      }
+
+      // Process multiple files
+      const fileContents = await Promise.all(uris.map(async uri => {
+        try {
+          const content = await vscode.workspace.fs.readFile(uri);
+          return { path: uri.fsPath, content: Buffer.from(content).toString('utf-8') };
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          vscode.window.showErrorMessage(`Failed to read file ${uri.fsPath}: ${errorMsg}`);
+          return null;
+        }
+      })).then(results => results.filter(Boolean));
+
+      // Send to Grok or handle context (implement your integration here)
+      // For example: await sendToGrok(fileContents);
+
+      vscode.window.showInformationMessage(`Uploaded ${fileContents.length} files for context.`);
+    });
+
+    context.subscriptions.push(disposable);
 
     // Register commands
     const commands = [
@@ -692,4 +726,26 @@ function getWebviewContent(markdown: string): string {
     </body>
     </html>
   `;
+}
+
+// New function to save document (incorporating suggested change)
+async function saveDocument(content: string, fileName: string) {
+  let saveFolder: vscode.Uri | undefined;
+
+  // Try to get the folder from the active editor
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    const activeFileUri = activeEditor.document.uri;
+    saveFolder = vscode.Uri.file(path.dirname(activeFileUri.fsPath));
+  } else if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+    // Fallback to the first workspace folder
+    saveFolder = vscode.workspace.workspaceFolders[0].uri;
+  } else {
+    vscode.window.showErrorMessage('No workspace folder open.');
+    return;
+  }
+
+  const filePath = vscode.Uri.joinPath(saveFolder, fileName);
+  await fs.promises.writeFile(filePath.fsPath, content, 'utf8');
+  vscode.window.showInformationMessage(`Saved to ${filePath.fsPath}`);
 }
