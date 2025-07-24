@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
+import { tokenizeText } from './utils/tokenizer';
 
 
 // Lightweight DOM setup for DOMPurify
@@ -27,11 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     function estimateTokens(text: string): number {
-      if (!text) return 0;
-      const cleanedText = text.trim().replace(/\s+/g, ' ');
-      const charCount = cleanedText.length;
-      const estimatedTokens = Math.ceil(charCount / 4);
-      return Math.ceil(estimatedTokens * 1.1);
+      return tokenizeText(text);
     }
 
     async function getWorkspaceContext(): Promise<string> {
@@ -659,4 +656,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
+}
+
+// Function to get webview content (update or add this)
+function getWebviewContent(markdown: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background-color: var(--vscode-editor-background); padding: 20px; }
+        h1, h2, h3 { color: var(--vscode-foreground); }
+        code { background-color: var(--vscode-editor-background); padding: 2px 4px; border-radius: 4px; }
+        pre { background-color: var(--vscode-editor-background); padding: 10px; border-radius: 4px; overflow-x: auto; }
+        a { color: var(--vscode-textLink-foreground); }
+      </style>
+    </head>
+    <body>
+      ${markdown}  // Assuming markdown is already converted to HTML if needed; use vscode.markdown-it or similar if not
+    </body>
+    </html>
+  `;
 }
