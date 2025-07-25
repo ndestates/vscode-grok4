@@ -48,7 +48,8 @@ To create a VSIX package for distribution:
 ```bash
 # Using DDEV (recommended)
 cd /path/to/vscode-grok4
-ddev exec "cd grok-integration && vsce package"
+ddev exec "cd grok-integration && '"@dqbd/tiktoken"' has no exported member named 'encodingForModel'. Did you mean 'encoding_for_model'?ts(2724)
+tiktoken.d.ts(121, 17): 'encoding_for_model' is declared here."
 
 # Or locally (requires @vscode/vsce installed globally)
 

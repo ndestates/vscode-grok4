@@ -185,10 +185,10 @@
     }
   },
   "dependencies": {
-    "openai": "^4.0.0",
+    "@dqbd/tiktoken": "^1.0.21",
     "dompurify": "^3.0.0",
     "linkedom": "^0.16.0",
-    "@dqbd/tiktoken": "^1.0.16"
+    "openai": "^4.0.0"
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -203,9 +203,9 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.102.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
+    "@types/vscode": "^1.102.0",
     "eslint": "^8.25.0",
     "ts-loader": "^9.5.2",
     "tslint": "^6.1.3",

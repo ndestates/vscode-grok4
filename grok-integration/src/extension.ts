@@ -30,10 +30,11 @@ export async function activate(context: vscode.ExtensionContext) {
     async function estimateTokens(text: string, files: string[] = []): Promise<number> {
       let total = 0;
       try {
-        total += (await tokenizeText(text)).length;
+        total += await tokenizeText(text);
+
         for (const file of files) {
           const content = await fs.promises.readFile(file, 'utf-8');
-          total += (await tokenizeText(content)).length;
+          total += await tokenizeText(content);
         }
         return total;
       } catch {
