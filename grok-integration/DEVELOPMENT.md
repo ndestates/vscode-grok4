@@ -48,8 +48,7 @@ To create a VSIX package for distribution:
 ```bash
 # Using DDEV (recommended)
 cd /path/to/vscode-grok4
-ddev exec "cd grok-integration && '"@dqbd/tiktoken"' has no exported member named 'encodingForModel'. Did you mean 'encoding_for_model'?ts(2724)
-tiktoken.d.ts(121, 17): 'encoding_for_model' is declared here."
+ddev exec "cd grok-integration && vsce package"
 
 # Or locally (requires @vscode/vsce installed globally)
 
@@ -270,3 +269,12 @@ code --install-extension grok-integration-1.0.0.vsix
 ---
 
 **Development Environment: DDEV + VS Code + TypeScript**
+
+# Development Guide
+
+## Code Compile Instructions
+- Compile TypeScript using DDEV: `ddev exec "npm run compile"`
+- Compile TypeScript locally: `npm run compile`
+
+## Package Instructions
+- Package using DDEV: `ddev exec "cd grok-integration && vsce package"`
