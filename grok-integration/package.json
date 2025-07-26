@@ -171,9 +171,9 @@
         "grokIntegration.apiKey": {
           "type": "string",
           "default": "",
-          "description": "🔑 Your xAI API key for accessing Grok AI. You must have a valid xAI account (usually paid or with free model access) and be part of a team at https://console.x.ai.",
+          "description": "🔑 Your xAI API key for accessing Grok AI. You must have an account with credits purchased at https://console.x.ai and be part of a team.",
           "scope": "application",
-          "markdownDescription": "Your xAI API key for accessing Grok AI. **Requirements:** You must have a valid xAI account ([console.x.ai](https://console.x.ai)), usually paid or with free model access, and be part of a team. **Get your API key:** [platform.x.ai](https://platform.x.ai/)"
+          "markdownDescription": "Your xAI API key for accessing Grok AI. **Requirements:** You must have an account with credits purchased ([console.x.ai](https://console.x.ai)) and be part of a team. **Get your API key:** [console.x.ai](https://console.x.ai)"
         },
         "grokIntegration.maxTokens": {
           "type": "number",
