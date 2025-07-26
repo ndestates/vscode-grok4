@@ -171,9 +171,9 @@
         "grokIntegration.apiKey": {
           "type": "string",
           "default": "",
-          "description": "🔑 Your xAI API key for accessing Grok AI (get yours at https://platform.x.ai/)",
+          "description": "🔑 Your xAI API key for accessing Grok AI. You must have a valid xAI account (usually paid or with free model access) and be part of a team at https://console.x.ai.",
           "scope": "application",
-          "markdownDescription": "Your xAI API key for accessing Grok AI. **Get your API key:** [platform.x.ai](https://platform.x.ai/)"
+          "markdownDescription": "Your xAI API key for accessing Grok AI. **Requirements:** You must have a valid xAI account ([console.x.ai](https://console.x.ai)), usually paid or with free model access, and be part of a team. **Get your API key:** [platform.x.ai](https://platform.x.ai/)"
         },
         "grokIntegration.maxTokens": {
           "type": "number",
@@ -184,8 +184,8 @@
         "grokIntegration.model": {
           "type": "string",
           "default": "grok-4-0709",
-          "description": "Grok model name to use for completions. Check the latest available models at https://x.ai/docs/models and update this setting as needed.",
-          "markdownDescription": "Grok model name to use for completions. **Check the latest available models:** [x.ai/docs/models](https://x.ai/docs/models) and update this setting as needed."
+          "description": "Grok model name to use for completions. You must have access to the selected model. Check the latest available models at https://x.ai/docs/models and update this setting as needed.",
+          "markdownDescription": "Grok model name to use for completions. **Requirements:** You must have access to the selected model (see your team at [console.x.ai](https://console.x.ai)). **Check the latest available models:** [x.ai/docs/models](https://x.ai/docs/models) and update this setting as needed."
         }
       }
     }
