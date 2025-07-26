@@ -726,17 +726,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
           if (fileUris.length > 0) {
             try {
-              // Show both absolute and relative paths for clarity
-              const filePathsList = fileUris
+              // Show both absolute and relative paths for clarity, truncate if more than 5 files
+              const fileCount = fileUris.length;
+              const fileWord = fileCount === 1 ? 'file' : 'files';
+              let filePathsList = fileUris.slice(0, 5)
                 .map(uri => {
                   const rel = vscode.workspace.asRelativePath(uri);
                   return `- ${uri.fsPath} (relative: ${rel})`;
                 })
                 .join('\n');
-
-              // Handle singular/plural for UX polish
-              const fileCount = fileUris.length;
-              const fileWord = fileCount === 1 ? 'file' : 'files';
+              if (fileCount > 5) {
+                filePathsList += `\n...and ${fileCount - 5} more ${fileWord} selected.`;
+              }
 
               // Constants for buttons and messages (easier to maintain/localize)
               const YES_BUTTON = 'Yes, Send Content';
