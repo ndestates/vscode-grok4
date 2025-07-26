@@ -13,20 +13,33 @@ const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></h
 const purify = createDOMPurify(window as any);
 
 // Rate limiting: Simple in-memory counter (reset every minute)
-let requestCount = 0;
 const MAX_REQUESTS_PER_MINUTE = 20;
+
+// Use globalState for rate limiting to persist across reloads and windows
+function getRequestCount(context: vscode.ExtensionContext): number {
+  return context.globalState.get<number>('grokRequestCount', 0);
+}
+
+function setRequestCount(context: vscode.ExtensionContext, count: number) {
+  context.globalState.update('grokRequestCount', count);
+}
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
     // Add this timer to reset the request counter every 60 seconds
     const rateLimitInterval = setInterval(() => {
-      requestCount = 0;
+      setRequestCount(context, 0);
     }, 60000);
     context.subscriptions.push({
-        dispose: () => {
-            clearInterval(rateLimitInterval);
-        }
+      dispose: () => {
+        clearInterval(rateLimitInterval);
+      }
     });
+
+    // Warn if extension is reloaded (rate limit resets)
+    if (getRequestCount(context) > 0) {
+      vscode.window.showWarningMessage('Grok Integration extension was reloaded. Rate limit counter has been reset.');
+    }
 
     // Helper functions
     function redactSecrets(text: string): string {
@@ -285,11 +298,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string): Promise<void> {
-      if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
+      let currentCount = getRequestCount(context);
+      if (currentCount >= MAX_REQUESTS_PER_MINUTE) {
         vscode.window.showErrorMessage('Rate limit exceeded. Please wait a minute.');
         return;
       }
-      requestCount++;
+      setRequestCount(context, currentCount + 1);
 
       const config = vscode.workspace.getConfiguration('grokIntegration');
       let apiKey = config.get<string>('apiKey');
