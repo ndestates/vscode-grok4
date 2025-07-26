@@ -474,7 +474,7 @@ export async function activate(context: vscode.ExtensionContext) {
             try {
               // Extract file names and format as a bulleted Markdown list for better readability
               const fileNamesList = fileUris
-                .map(uri => `- ${path.basename(uri.fsPath)}`) // Fixed syntax: proper template literal for bullet
+                .map(uri => `- ${vscode.workspace.asRelativePath(uri)}`)
                 .join('\n');
 
               // Handle singular/plural for UX polish
