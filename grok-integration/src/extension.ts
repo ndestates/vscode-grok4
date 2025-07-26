@@ -246,57 +246,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<string | undefined> {
-      try {
-        const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
-        const redactedCode = redactSecrets(code);
-        const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
-        const tokenCount = await estimateTokens(prompt);
-        if (tokenCount > 8000) {
-          panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
-          return;
-        }
-        const config = vscode.workspace.getConfiguration('grokIntegration');
-        const maxTokens = config.get<number>('maxTokens') || 9000;
-        const stream = await openai.chat.completions.create({
-          model: 'grok-4-0709',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: maxTokens,
-          temperature: 0.5,
-          stream: true,
-        });
-        let fullResponse = '';
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            fullResponse += content;
-            panel.webview.postMessage({ type: 'update', content: purify.sanitize(content.replace(/\n/g, '<br>')) });
-          }
-        }
-        panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
-        return fullResponse; // Return the raw markdown content
-      } catch (error) {
-        let errorMsg = 'Unknown error';
-        if (error instanceof Error) {
-          errorMsg = error.message;
-          if (error.stack) {
-            console.error('processGrokRequest error stack:', error.stack);
-          } else {
-            console.error('processGrokRequest error:', error);
-          }
-        } else {
-          try {
-            errorMsg = JSON.stringify(error);
-          } catch {
-            errorMsg = String(error);
-          }
-          console.error('processGrokRequest non-Error:', error);
-        }
-        panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
-        return `# Error\n\n${errorMsg}`; // Return error as markdown
-      }
-    }
-
     async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string): Promise<void> {
       let currentCount = getRequestCount(context);
       if (currentCount >= MAX_REQUESTS_PER_MINUTE) {
@@ -307,16 +256,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const config = vscode.workspace.getConfiguration('grokIntegration');
       let apiKey = config.get<string>('apiKey');
-      if (!apiKey) {
+      // Robust API key check
+      if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
         const newKey = await vscode.window.showInputBox({
           prompt: 'Enter your xAI API key',
           password: true,
           placeHolder: 'xai-...'
         });
-        if (newKey) {
-          await config.update('apiKey', newKey, vscode.ConfigurationTarget.Global);
-          apiKey = newKey;
+        if (newKey && typeof newKey === 'string' && newKey.trim()) {
+          await config.update('apiKey', newKey.trim(), vscode.ConfigurationTarget.Global);
+          apiKey = newKey.trim();
         } else {
+          vscode.window.showErrorMessage('❌ API key is required to use Grok Integration.');
           return;
         }
       }
@@ -357,17 +308,75 @@ export async function activate(context: vscode.ExtensionContext) {
       );
     }
 
+    async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<string | undefined> {
+      try {
+        // Defensive API key check
+        if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+          panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: API key is missing or invalid. Please set your xAI API key in settings.</p>' });
+          return '# Error\n\nAPI key is missing or invalid.';
+        }
+        const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+        const redactedCode = redactSecrets(code);
+        const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+        const tokenCount = await estimateTokens(prompt);
+        if (tokenCount > 8000) {
+          panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
+          return;
+        }
+        const config = vscode.workspace.getConfiguration('grokIntegration');
+        const maxTokens = config.get<number>('maxTokens') || 9000;
+        const stream = await openai.chat.completions.create({
+          model: 'grok-4-0709',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: maxTokens,
+          temperature: 0.5,
+          stream: true,
+        });
+        let fullResponse = '';
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullResponse += content;
+            panel.webview.postMessage({ type: 'update', content: purify.sanitize(content.replace(/\n/g, '<br>')) });
+          }
+        }
+        panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
+        return fullResponse; // Return the raw markdown content
+      } catch (error) {
+        let errorMsg = 'Unknown error';
+        // Never log API key
+        if (error instanceof Error) {
+          errorMsg = error.message;
+          if (error.stack) {
+            console.error('processGrokRequest error stack:', error.stack);
+          } else {
+            console.error('processGrokRequest error:', error);
+          }
+        } else {
+          try {
+            errorMsg = JSON.stringify(error);
+          } catch {
+            errorMsg = String(error);
+          }
+          console.error('processGrokRequest non-Error:', error);
+        }
+        panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
+        return `# Error\n\n${errorMsg}`; // Return error as markdown
+      }
+    }
+
     // Chat participant
     // REFACTORED: Simplified to a handler object for the modern Chat API.
     const chatHandler = {
       async handleRequest(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> {
         const config = vscode.workspace.getConfiguration('grokIntegration');
         const apiKey = config.get<string>('apiKey');
-        if (!apiKey) {
+        // Robust API key check
+        if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
           stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
           return {}; // CORRECTED: Must return a ChatResult object
         }
-        const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+        const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
         let action = 'respond to';
         if (request.command === 'explain') action = 'explain';
         else if (request.command === 'review') action = 'review and suggest improvements for';
