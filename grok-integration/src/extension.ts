@@ -7,6 +7,514 @@ import { parseHTML } from 'linkedom';
 import { tokenizeText } from './utils/tokenizer';
 import { marked } from 'marked';
 
+function redactSecrets(text: string): string {
+  return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
+}
+
+function convertMarkdownToHtml(markdown: string): string {
+  const html = marked.parse(markdown, { breaks: true });
+  return purify.sanitize(typeof html === 'string' ? html : '');
+}
+function getLoadingHTML(): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          background: var(--vscode-editor-background);
+          color: var(--vscode-editor-foreground);
+          font-family: var(--vscode-font-family);
+          font-size: 1rem;
+          padding: 1em;
+        }
+        .action-bar {
+          position: sticky;
+          top: 0;
+          background: var(--vscode-editor-background);
+          padding-bottom: 10px;
+          border-bottom: 1px solid var(--vscode-side-bar-border);
+          margin-bottom: 10px;
+        }
+        .action-button {
+          cursor: pointer;
+          background: var(--vscode-button-background);
+          color: var(--vscode-button-foreground);
+          border: 1px solid var(--vscode-button-border);
+          border-radius: 3px;
+          padding: 4px 10px;
+          font-size: 1rem;
+          transition: background 0.2s, color 0.2s, border 0.2s;
+        }
+        .action-button:hover,
+        .action-button:focus-visible {
+          background: var(--vscode-button-hover-background);
+          color: var(--vscode-button-foreground);
+          outline: 2px solid var(--vscode-focus-border);
+        }
+        .action-button:focus {
+          outline: 2px solid var(--vscode-focus-border);
+        }
+        .code-block-wrapper {
+          position: relative;
+          background-color: var(--vscode-editor-background);
+          border: 1px solid var(--vscode-side-bar-border);
+          border-radius: 4px;
+          margin: 1em 0;
+        }
+        pre {
+          padding: 1em;
+          margin: 0;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          font-size: 0.95rem;
+          background: var(--vscode-editor-background);
+          color: var(--vscode-editor-foreground);
+        }
+        code {
+          font-family: var(--vscode-editor-font-family, monospace);
+          font-size: 0.95rem;
+        }
+        .copy-button {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          cursor: pointer;
+          background: var(--vscode-button-background);
+          color: var(--vscode-button-foreground);
+          border: 1px solid var(--vscode-button-border);
+          border-radius: 3px;
+          padding: 2px 6px;
+          opacity: 0.8;
+          transition: opacity 0.2s, background 0.2s, color 0.2s;
+        }
+        .copy-button:hover,
+        .copy-button:focus-visible {
+          opacity: 1;
+          background: var(--vscode-button-hover-background);
+          outline: 2px solid var(--vscode-focus-border);
+        }
+        .copy-button:focus {
+          outline: 2px solid var(--vscode-focus-border);
+        }
+        @media (max-width: 600px) {
+          body {
+            font-size: 0.95rem;
+          }
+          .action-button, pre, code {
+            font-size: 0.9rem;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="action-bar">
+        <button id="save-button" class="action-button" title="Save response as a Markdown file" aria-label="Save response as a Markdown file">💾 Save</button>
+      </div>
+      <div id="content">🔍 Connecting to Grok... Please wait.</div>
+      <script>
+        (function() {
+          const vscode = acquireVsCodeApi();
+          function escapeHtml(unsafe) {
+            return unsafe
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;");
+          }
+          document.getElementById('save-button').addEventListener('click', () => {
+            vscode.postMessage({ command: 'saveFile' });
+          });
+          function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(() => {
+                vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
+              }, (err) => {
+                fallbackCopy(text, err);
+              });
+            } else {
+              fallbackCopy(text);
+            }
+          }
+          function fallbackCopy(text, origError) {
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = text;
+              textarea.setAttribute('readonly', '');
+              textarea.style.position = 'absolute';
+              textarea.style.left = '-9999px';
+              document.body.appendChild(textarea);
+              textarea.select();
+              const successful = document.execCommand('copy');
+              document.body.removeChild(textarea);
+              if (successful) {
+                vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
+              } else {
+                vscode.postMessage({ command: 'showError', message: 'Failed to copy code.' });
+              }
+            } catch (e) {
+              let msg = 'Failed to copy code.';
+              if (origError) msg += ' Clipboard API error: ' + origError;
+              vscode.postMessage({ command: 'showError', message: msg });
+            }
+          }
+          function setupCopyButtons() {
+            const codeBlocks = document.querySelectorAll('pre code');
+            codeBlocks.forEach((codeBlock, index) => {
+              let wrapper = codeBlock.parentNode;
+              if (!wrapper.classList.contains('code-block-wrapper')) {
+                wrapper = document.createElement('div');
+                wrapper.className = 'code-block-wrapper';
+                codeBlock.parentNode.insertBefore(wrapper, codeBlock);
+                wrapper.appendChild(codeBlock);
+              }
+              const oldButton = wrapper.querySelector('.copy-button');
+              if (oldButton) {
+                oldButton.remove();
+              }
+              const copyButton = document.createElement('div');
+              copyButton.className = 'copy-button';
+              copyButton.innerHTML = '📋';
+              copyButton.title = 'Copy code to clipboard';
+              copyButton.setAttribute('tabindex', '0');
+              copyButton.setAttribute('role', 'button');
+              copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+              copyButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = codeBlock.innerText;
+                copyToClipboard(code);
+              });
+              copyButton.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  const code = codeBlock.innerText;
+                  copyToClipboard(code);
+                }
+              });
+              wrapper.appendChild(copyButton);
+            });
+          }
+          window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.type === 'update') {
+              const sanitizedContent = escapeHtml(message.content);
+              document.getElementById('content').innerHTML += sanitizedContent;
+              setupCopyButtons();
+            } else if (message.type === 'complete') {
+              document.getElementById('content').innerHTML = message.html;
+              setupCopyButtons();
+            } else if (message.command === 'showInfo') {
+              vscode.postMessage({ command: 'showInfo', message: message.message });
+            } else if (message.command === 'showError') {
+              vscode.postMessage({ command: 'showError', message: message.message });
+            }
+          });
+        })();
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+async function getWorkspaceContext(): Promise<string> {
+  const workspaceName = vscode.workspace.name || 'Untitled';
+  const activeFile = vscode.window.activeTextEditor?.document.fileName || 'No active file';
+  return `Workspace: ${workspaceName}\nActive File: ${activeFile}`;
+}
+
+async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<string | undefined> {
+  try {
+    if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+      panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: API key is missing or invalid. Please set your xAI API key in settings.</p>' });
+      return '# Error\n\nAPI key is missing or invalid.';
+    }
+    const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+    const redactedCode = redactSecrets(code);
+    const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+    const tokenCount = await estimateTokens(prompt);
+    if (tokenCount > 8000) {
+      panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
+      return;
+    }
+    const config = vscode.workspace.getConfiguration('grokIntegration');
+    const maxTokens = config.get<number>('maxTokens') || 9000;
+    const stream = await openai.chat.completions.create({
+      model: 'grok-4-0709',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.5,
+      stream: true,
+    });
+    let fullResponse = '';
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        fullResponse += content;
+        panel.webview.postMessage({ type: 'update', content: purify.sanitize(content.replace(/\n/g, '<br>')) });
+      }
+    }
+    panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
+    return fullResponse;
+  } catch (error) {
+    let errorMsg = 'Unknown error';
+    if (error instanceof Error) {
+      errorMsg = error.message;
+      if (error.stack) {
+        console.error('processGrokRequest error stack:', error.stack);
+      } else {
+        console.error('processGrokRequest error:', error);
+      }
+    } else {
+      try {
+        errorMsg = JSON.stringify(error);
+      } catch {
+        errorMsg = String(error);
+      }
+      console.error('processGrokRequest non-Error:', error);
+    }
+    panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
+    return `# Error\n\n${errorMsg}`;
+  }
+}
+// --- Utility Functions ---
+
+async function estimateTokens(text: string, files: string[] = []): Promise<number> {
+  let total = 0;
+  try {
+    total += await tokenizeText(text);
+    for (const file of files) {
+      const content = await fs.promises.readFile(file, 'utf-8');
+      total += await tokenizeText(content);
+    }
+    return total;
+  } catch {
+    // Fallback heuristic (async version)
+    try {
+      const fileContents = await Promise.all(files.map(async f => {
+        try {
+          return await fs.promises.readFile(f, 'utf-8');
+        } catch {
+          return '';
+        }
+      }));
+      const combined = [text, ...fileContents].join(' ');
+      const cleaned = combined.trim().replace(/\s+/g, ' ');
+      return Math.ceil((cleaned.length / 4) * 1.1);
+    } catch {
+      // If even async fails, just estimate from text
+      const cleaned = text.trim().replace(/\s+/g, ' ');
+      return Math.ceil((cleaned.length / 4) * 1.1);
+    }
+  }
+}
+
+async function testGrokConnection(apiKey: string): Promise<boolean> {
+  try {
+    const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
+    const response = await openai.chat.completions.create({
+      model: 'grok-4-0709',
+      messages: [{ role: 'user', content: 'Hi' }],
+      max_tokens: 3,
+      temperature: 0.1
+    });
+    return response.choices && response.choices.length > 0;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string): Promise<void> {
+  let currentCount = getRequestCount(context);
+  if (currentCount >= MAX_REQUESTS_PER_MINUTE) {
+    vscode.window.showErrorMessage('Rate limit exceeded. Please wait a minute.');
+    return;
+  }
+  setRequestCount(context, currentCount + 1);
+
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  let apiKey = config.get<string>('apiKey');
+  // Robust API key check
+  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    const newKey = await vscode.window.showInputBox({
+      prompt: 'Enter your xAI API key',
+      password: true,
+      placeHolder: 'xai-...'
+    });
+    if (newKey && typeof newKey === 'string' && newKey.trim()) {
+      await config.update('apiKey', newKey.trim(), vscode.ConfigurationTarget.Global);
+      apiKey = newKey.trim();
+    } else {
+      vscode.window.showErrorMessage('❌ API key is required to use Grok Integration.');
+      return;
+    }
+  }
+  const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
+  panel.webview.html = getLoadingHTML();
+
+  const rawMarkdownResponse = await processGrokRequest(panel, code, language, action, apiKey);
+
+  panel.webview.onDidReceiveMessage(
+    async message => {
+      if (message.command === 'saveFile') {
+        if (rawMarkdownResponse) {
+          const now = new Date();
+          const day = String(now.getDate()).padStart(2, '0');
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const year = now.getFullYear();
+          const hours = String(now.getHours()).padStart(2, '0');
+          const minutes = String(now.getMinutes()).padStart(2, '0');
+          const seconds = String(now.getSeconds()).padStart(2, '0');
+          const timestamp = `${day}${month}${year}-${hours}${minutes}${seconds}`;
+          const filename = `${timestamp}-grok-response.md`;
+
+          const uri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(filename),
+            filters: { 'Markdown Files': ['md'] }
+          });
+          if (uri) {
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(rawMarkdownResponse, 'utf8'));
+            vscode.window.showInformationMessage(`✅ Response saved to ${path.basename(uri.fsPath)}`);
+          }
+        } else {
+          vscode.window.showErrorMessage('No response content to save.');
+        }
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
+}
+// --- Command Handler Implementations ---
+async function askGrokCommand(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const selection = editor.selection;
+  const code = editor.document.getText(selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  const action = 'explain'; // Default action for askGrokCommand
+  await showGrokPanel(context, 'Grok Response', code, language, action);
+}
+
+async function explainCodeCommand(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Explanation', code, language, 'explain');
+}
+
+async function reviewCodeCommand(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Review', code, language, 'review and suggest improvements for');
+}
+
+async function suggestImprovementsCommand(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Suggestions', code, language, 'suggest improvements for');
+}
+
+async function askGrokInlineCommand() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  // Use the extension context from the active extension
+  const ext = vscode.extensions.getExtension('grok-integration');
+  const context = ext?.exports?.globalState ? { globalState: ext.exports.globalState } as vscode.ExtensionContext : undefined;
+  if (!context) {
+    vscode.window.showErrorMessage('Extension context not available for inline command.');
+    return;
+  }
+  await showGrokPanel(context, 'Grok Inline', code, language, 'respond to');
+}
+
+async function editWithGrokCommand() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  const ext = vscode.extensions.getExtension('grok-integration');
+  const context = ext?.exports?.globalState ? { globalState: ext.exports.globalState } as vscode.ExtensionContext : undefined;
+  if (!context) {
+    vscode.window.showErrorMessage('Extension context not available for edit command.');
+    return;
+  }
+  await showGrokPanel(context, 'Edit with Grok', code, language, 'edit');
+}
+
+async function uploadFilesCommand() {
+  const uris = await vscode.window.showOpenDialog({ canSelectMany: true, openLabel: 'Upload Files' });
+  if (!uris || uris.length === 0) {
+    vscode.window.showInformationMessage('No files selected for upload.');
+    return;
+  }
+  vscode.window.showInformationMessage(`Selected files: ${uris.map(u => u.fsPath).join(', ')}`);
+  // Add further upload logic here if needed
+}
+
+async function showTokenCountCommand() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const tokenCount = await estimateTokens(code);
+  vscode.window.showInformationMessage(`Estimated token count: ${tokenCount}`);
+}
+
+async function securityFixCommand(context: vscode.ExtensionContext) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Security Fix', code, language, 'find and fix security vulnerabilities in');
+}
+
+const testConnectionCommand = vscode.commands.registerCommand('grok-integration.testConnection', async () => {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const apiKey = config.get<string>('apiKey');
+  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    vscode.window.showErrorMessage('API key is required to test connection.');
+    return;
+  }
+  vscode.window.showInformationMessage('Testing connection to Grok...');
+  const success = await testGrokConnection(apiKey);
+  if (success) {
+    vscode.window.showInformationMessage('✅ Successfully connected to Grok API!');
+  } else {
+    vscode.window.showErrorMessage('❌ Failed to connect to Grok API. Please check your API key and network.');
+  }
+});
+
 
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -26,7 +534,6 @@ function setRequestCount(context: vscode.ExtensionContext, count: number) {
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
-    // Add this timer to reset the request counter every 60 seconds
     const rateLimitInterval = setInterval(() => {
       setRequestCount(context, 0);
     }, 60000);
@@ -46,259 +553,6 @@ export async function activate(context: vscode.ExtensionContext) {
       return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
     }
 
-    async function estimateTokens(text: string, files: string[] = []): Promise<number> {
-      let total = 0;
-      try {
-        total += await tokenizeText(text);
-
-        for (const file of files) {
-          const content = await fs.promises.readFile(file, 'utf-8');
-          total += await tokenizeText(content);
-        }
-        return total;
-      } catch {
-        // Fallback heuristic (async version)
-        try {
-          const fileContents = await Promise.all(files.map(async f => {
-            try {
-              return await fs.promises.readFile(f, 'utf-8');
-            } catch {
-              return '';
-            }
-          }));
-          const combined = [text, ...fileContents].join(' ');
-          const cleaned = combined.trim().replace(/\s+/g, ' ');
-          return Math.ceil((cleaned.length / 4) * 1.1);
-        } catch {
-          // If even async fails, just estimate from text
-          const cleaned = text.trim().replace(/\s+/g, ' ');
-          return Math.ceil((cleaned.length / 4) * 1.1);
-        }
-      }
-    }
-
-    async function getWorkspaceContext(): Promise<string> {
-      const workspaceName = vscode.workspace.name || 'Untitled';
-      const activeFile = vscode.window.activeTextEditor?.document.fileName || 'No active file';
-      return `Workspace: ${workspaceName}\nActive File: ${activeFile}`;
-    }
-
-    function getLoadingHTML(): string {
-      return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body {
-              background: var(--vscode-editor-background);
-              color: var(--vscode-editor-foreground);
-              font-family: var(--vscode-font-family);
-              font-size: 1rem;
-              padding: 1em;
-            }
-            .action-bar {
-              position: sticky;
-              top: 0;
-              background: var(--vscode-editor-background);
-              padding-bottom: 10px;
-              border-bottom: 1px solid var(--vscode-side-bar-border);
-              margin-bottom: 10px;
-            }
-            .action-button {
-              cursor: pointer;
-              background: var(--vscode-button-background);
-              color: var(--vscode-button-foreground);
-              border: 1px solid var(--vscode-button-border);
-              border-radius: 3px;
-              padding: 4px 10px;
-              font-size: 1rem;
-              transition: background 0.2s, color 0.2s, border 0.2s;
-            }
-            .action-button:hover,
-            .action-button:focus-visible {
-              background: var(--vscode-button-hover-background);
-              color: var(--vscode-button-foreground);
-              outline: 2px solid var(--vscode-focus-border);
-            }
-            .action-button:focus {
-              outline: 2px solid var(--vscode-focus-border);
-            }
-            .code-block-wrapper {
-              position: relative;
-              background-color: var(--vscode-editor-background);
-              border: 1px solid var(--vscode-side-bar-border);
-              border-radius: 4px;
-              margin: 1em 0;
-            }
-            pre {
-              padding: 1em;
-              margin: 0;
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              font-size: 0.95rem;
-              background: var(--vscode-editor-background);
-              color: var(--vscode-editor-foreground);
-            }
-            code {
-              font-family: var(--vscode-editor-font-family, monospace);
-              font-size: 0.95rem;
-            }
-            .copy-button {
-              position: absolute;
-              top: 5px;
-              right: 5px;
-              cursor: pointer;
-              background: var(--vscode-button-background);
-              color: var(--vscode-button-foreground);
-              border: 1px solid var(--vscode-button-border);
-              border-radius: 3px;
-              padding: 2px 6px;
-              opacity: 0.8;
-              transition: opacity 0.2s, background 0.2s, color 0.2s;
-            }
-            .copy-button:hover,
-            .copy-button:focus-visible {
-              opacity: 1;
-              background: var(--vscode-button-hover-background);
-              outline: 2px solid var(--vscode-focus-border);
-            }
-            .copy-button:focus {
-              outline: 2px solid var(--vscode-focus-border);
-            }
-            @media (max-width: 600px) {
-              body {
-                font-size: 0.95rem;
-              }
-              .action-button, pre, code {
-                font-size: 0.9rem;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="action-bar">
-            <button id="save-button" class="action-button" title="Save response as a Markdown file" aria-label="Save response as a Markdown file">💾 Save</button>
-          </div>
-          <div id="content">🔍 Connecting to Grok... Please wait.</div>
-          <script>
-            (function() {
-              const vscode = acquireVsCodeApi();
-              // Additional sanitization function for streamed content
-              function escapeHtml(unsafe) {
-                return unsafe
-                  .replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;")
-                  .replace(/"/g, "&quot;")
-                  .replace(/'/g, "&#039;");
-              }
-
-              document.getElementById('save-button').addEventListener('click', () => {
-                vscode.postMessage({ command: 'saveFile' });
-              });
-
-              function copyToClipboard(text) {
-                // Try navigator.clipboard first
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                  navigator.clipboard.writeText(text).then(() => {
-                    vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
-                  }, (err) => {
-                    // Fallback to execCommand if clipboard API fails
-                    fallbackCopy(text, err);
-                  });
-                } else {
-                  fallbackCopy(text);
-                }
-              }
-
-              function fallbackCopy(text, origError) {
-                try {
-                  const textarea = document.createElement('textarea');
-                  textarea.value = text;
-                  textarea.setAttribute('readonly', '');
-                  textarea.style.position = 'absolute';
-                  textarea.style.left = '-9999px';
-                  document.body.appendChild(textarea);
-                  textarea.select();
-                  const successful = document.execCommand('copy');
-                  document.body.removeChild(textarea);
-                  if (successful) {
-                    vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
-                  } else {
-                    vscode.postMessage({ command: 'showError', message: 'Failed to copy code.' });
-                  }
-                } catch (e) {
-                  let msg = 'Failed to copy code.';
-                  if (origError) msg += ' Clipboard API error: ' + origError;
-                  vscode.postMessage({ command: 'showError', message: msg });
-                }
-              }
-
-              function setupCopyButtons() {
-                const codeBlocks = document.querySelectorAll('pre code');
-                codeBlocks.forEach((codeBlock, index) => {
-                  let wrapper = codeBlock.parentNode;
-                  if (!wrapper.classList.contains('code-block-wrapper')) {
-                    wrapper = document.createElement('div');
-                    wrapper.className = 'code-block-wrapper';
-                    codeBlock.parentNode.insertBefore(wrapper, codeBlock);
-                    wrapper.appendChild(codeBlock);
-                  }
-
-                  // Remove old copy button if it exists
-                  const oldButton = wrapper.querySelector('.copy-button');
-                  if (oldButton) {
-                    oldButton.remove();
-                  }
-
-                  // Create new copy button
-                  const copyButton = document.createElement('div');
-                  copyButton.className = 'copy-button';
-                  copyButton.innerHTML = '📋';
-                  copyButton.title = 'Copy code to clipboard';
-                  copyButton.setAttribute('tabindex', '0');
-                  copyButton.setAttribute('role', 'button');
-                  copyButton.setAttribute('aria-label', 'Copy code to clipboard');
-                  // Mouse click
-                  copyButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const code = codeBlock.innerText;
-                    copyToClipboard(code);
-                  });
-                  // Keyboard accessibility
-                  copyButton.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      const code = codeBlock.innerText;
-                      copyToClipboard(code);
-                    }
-                  });
-                  wrapper.appendChild(copyButton);
-                });
-              }
-
-              window.addEventListener('message', event => {
-                const message = event.data;
-                if (message.type === 'update') {
-                  // Sanitize streamed content before rendering
-                  const sanitizedContent = escapeHtml(message.content);
-                  document.getElementById('content').innerHTML += sanitizedContent;
-                  setupCopyButtons(); // Setup copy buttons for new content
-                } else if (message.type === 'complete') {
-                  document.getElementById('content').innerHTML = message.html;
-                  setupCopyButtons(); // Setup copy buttons for final content
-                } else if (message.command === 'showInfo') {
-                  vscode.postMessage({ command: 'showInfo', message: message.message });
-                } else if (message.command === 'showError') {
-                  vscode.postMessage({ command: 'showError', message: message.message });
-                }
-              });
-            })();
-          </script>
-        </body>
-        </html>
-      `;
-    }
 
     function convertMarkdownToHtml(markdown: string): string {
       // Use marked for markdown parsing, then sanitize
@@ -713,3 +967,4 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
 }
+
