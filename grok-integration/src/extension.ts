@@ -963,6 +963,51 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(explainContextCmd, reviewContextCmd);
     extensionDisposables.push(explainContextCmd, reviewContextCmd);
 
+    // New commands for error log
+    async function showErrorLogCommand() {
+      const logFile = path.join(os.homedir(), '.vscode-grok-logs', 'error.log');
+      if (!fs.existsSync(logFile)) {
+        vscode.window.showInformationMessage('No error log found.');
+        return;
+      }
+      const doc = await vscode.workspace.openTextDocument(logFile);
+      await vscode.window.showTextDocument(doc, { preview: false });
+    }
+
+    async function clearErrorLogCommand() {
+      const logFile = path.join(os.homedir(), '.vscode-grok-logs', 'error.log');
+      if (fs.existsSync(logFile)) {
+        try {
+          fs.unlinkSync(logFile);
+          vscode.window.showInformationMessage('Grok error log cleared.');
+        } catch (err) {
+          vscode.window.showErrorMessage('Failed to clear error log: ' + (err instanceof Error ? err.message : String(err)));
+          logExtensionError(err, 'clearErrorLogCommand');
+        }
+      } else {
+        vscode.window.showInformationMessage('No error log found to clear.');
+      }
+    }
+
+    const showLogCmd = vscode.commands.registerCommand('grok-integration.showErrorLog', async () => {
+      try {
+        await showErrorLogCommand();
+      } catch (err) {
+        vscode.window.showErrorMessage('Error showing error log: ' + (err instanceof Error ? err.message : String(err)));
+        logExtensionError(err, 'showErrorLogCommand');
+      }
+    });
+    const clearLogCmd = vscode.commands.registerCommand('grok-integration.clearErrorLog', async () => {
+      try {
+        await clearErrorLogCommand();
+      } catch (err) {
+        vscode.window.showErrorMessage('Error clearing error log: ' + (err instanceof Error ? err.message : String(err)));
+        logExtensionError(err, 'clearErrorLogCommand');
+      }
+    });
+    context.subscriptions.push(showLogCmd, clearLogCmd);
+    extensionDisposables.push(showLogCmd, clearLogCmd);
+
     // Show success message
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
 
