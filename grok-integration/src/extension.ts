@@ -726,9 +726,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
           if (fileUris.length > 0) {
             try {
-              // Show full file paths for clarity
+              // Show both absolute and relative paths for clarity
               const filePathsList = fileUris
-                .map(uri => `- ${uri.fsPath}`)
+                .map(uri => {
+                  const rel = vscode.workspace.asRelativePath(uri);
+                  return `- ${uri.fsPath} (relative: ${rel})`;
+                })
                 .join('\n');
 
               // Handle singular/plural for UX polish
