@@ -177,7 +177,7 @@ export async function activate(context: vscode.ExtensionContext) {
         </head>
         <body>
           <div class="action-bar">
-            <button id="save-button" class="action-button" title="Save response as a Markdown file">💾 Save</button>
+            <button id="save-button" class="action-button" title="Save response as a Markdown file" aria-label="Save response as a Markdown file">💾 Save</button>
           </div>
           <div id="content">🔍 Connecting to Grok... Please wait.</div>
           <script>
@@ -256,10 +256,22 @@ export async function activate(context: vscode.ExtensionContext) {
                   copyButton.className = 'copy-button';
                   copyButton.innerHTML = '📋';
                   copyButton.title = 'Copy code to clipboard';
+                  copyButton.setAttribute('tabindex', '0');
+                  copyButton.setAttribute('role', 'button');
+                  copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+                  // Mouse click
                   copyButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const code = codeBlock.innerText;
                     copyToClipboard(code);
+                  });
+                  // Keyboard accessibility
+                  copyButton.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const code = codeBlock.innerText;
+                      copyToClipboard(code);
+                    }
                   });
                   wrapper.appendChild(copyButton);
                 });
