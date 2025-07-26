@@ -6,6 +6,7 @@ import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
 import { tokenizeText } from './utils/tokenizer';
 import { marked } from 'marked';
+import * as os from 'os';
 
 function redactSecrets(text: string): string {
   return text.replace(/(api_key|password|secret|token|jwt|bearer|env)=[^& \n]+/gi, '$1=REDACTED');
@@ -273,6 +274,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
       } catch {
         errorMsg = String(error);
       }
+      logExtensionError(error, 'processGrokRequest');
       console.error('processGrokRequest non-Error:', error);
     }
     panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
@@ -698,6 +700,7 @@ export async function activate(context: vscode.ExtensionContext) {
           } catch {
             errorMsg = String(error);
           }
+          logExtensionError(error, 'processGrokRequest');
           console.error('processGrokRequest non-Error:', error);
         }
         panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
@@ -966,6 +969,7 @@ export async function activate(context: vscode.ExtensionContext) {
   } catch (error) {
     console.error('❌ Extension activation failed:', error);
     vscode.window.showErrorMessage(`Failed to activate Grok Integration: ${error instanceof Error ? error.message : String(error)}`);
+    logExtensionError(error, 'Extension Activation');
   }
 }
 
@@ -979,5 +983,32 @@ export function deactivate() {
     }
   }
   extensionDisposables = [];
+}
+
+// Centralized error logging
+function logExtensionError(error: any, context: string = '') {
+  try {
+    const logDir = path.join(os.homedir(), '.vscode-grok-logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const logFile = path.join(logDir, 'error.log');
+    const timestamp = new Date().toISOString();
+    let errorMsg = '';
+    if (error instanceof Error) {
+      errorMsg = error.stack || error.message;
+    } else {
+      try {
+        errorMsg = JSON.stringify(error);
+      } catch {
+        errorMsg = String(error);
+      }
+    }
+    const logEntry = `[${timestamp}] ${context}: ${errorMsg}\n`;
+    fs.appendFileSync(logFile, logEntry);
+  } catch (e) {
+    // Fallback: log to console if file logging fails
+    console.error('Failed to log extension error:', e);
+  }
 }
 
