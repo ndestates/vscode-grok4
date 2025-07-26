@@ -1,6 +1,32 @@
+
 # Change Log
 
 All notable changes to the "grok-integration" extension will be documented in this file.
+
+## [1.5.7] - 2025-07-26
+
+### Added
+- **Error Log Access**: New commands to show and clear the extension error log from the command palette for easier diagnostics.
+- **Centralized Error Logging**: All extension errors are now logged to a local file for troubleshooting.
+- **Security Fix**: Improved handling of sensitive data in file context.
+
+### Improved
+- **Resource Cleanup**: All extension disposables are tracked and disposed in deactivate for robust resource management.
+- **Hard Token Limit**: Requests above your configured maxTokens are blocked and show an error, preventing API failures.
+- **File Consent Prompt**: File consent dialog now shows full absolute and relative paths, truncates long file lists, and summarizes file count for clarity.
+- **Settings Documentation**: API key instructions now refer to console.x.ai, clarify credits and team membership requirements, and provide direct links.
+- **Model Configuration**: Grok model name is now configurable in settings and used in all API calls. Settings link to latest model docs.
+
+### Fixed
+- **Imports and Structure**: All imports are at the top, all handler and utility functions are top-level, and file structure is improved for reliability.
+- **Command Registration**: All commands are registered after handler declarations to resolve scope errors.
+- **Webview Accessibility**: Improved keyboard accessibility and theme compatibility for webview buttons and action bar.
+- **Clipboard Handling**: Robust clipboard logic with fallback and error feedback in webview.
+- **Rate Limiting**: Uses globalState for request count, persists across reloads/windows, and warns on reload.
+
+### Technical
+- Refactored and improved error handling, webview sanitization, markdown rendering, and async file IO.
+- Version bump to 1.5.7.
 
 ## [1.5.2] - 2025-07-22
 

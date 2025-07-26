@@ -1,14 +1,17 @@
+
 # Grok Integration for VS Code
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
-## 🚀 New in v1.5.2
+## 🚀 New in v1.5.7
 
 -   **🧠 Enhanced Chat Context**: Attach multiple files to your chat prompts using `#file:` for project-aware answers and multi-file code edits.
 -   **🔒 User Consent**: The extension now asks for your permission before sending file contents to the API, putting you in control.
--   **⚡ Token Limit Override**: Exceeding the token limit? A new dialog lets you proceed with large requests on a case-by-case basis.
--   **💡 Suggest Improvements**: A new right-click command to get quick, actionable suggestions for your selected code.
--   **🎯 Direct & Professional AI**: The AI is now instructed to provide concise, to-the-point answers without conversational filler.
+-   **⚡ Hard Token Limit**: Requests exceeding your configured token limit are blocked unless you increase the limit in settings.
+-   **💡 Suggest Improvements**: Right-click command for actionable suggestions for your selected code.
+-   **🛡️ Security**: Secrets in file contents are now redacted before sending to xAI.
+-   **📝 Error Log Access**: View and clear the extension error log via commands.
+-   **🎯 Direct & Professional AI**: The AI provides concise, to-the-point answers without conversational filler.
 
 ---
 
@@ -22,16 +25,18 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - Restart VS Code
 
 ### 2. Get Your xAI API Key
-1. Visit [https://platform.x.ai/](https://platform.x.ai/)
+1. Visit [https://console.x.ai/](https://console.x.ai/)
 2. Sign in with your X (Twitter) account
 3. Navigate to the API section
-4. Copy your API key
+4. Copy your API key (must be part of a team and have credits)
 
 ### 3. Configure the Extension
 1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
 2. Search for "Grok Integration"
-3. Paste your API key in the "Api Key" field
-4. You're ready to go!
+3. Paste your API key in the **Grok Integration: Api Key** field
+4. (Optional) Set your preferred Grok model in **Grok Integration: Model** (default: `grok-4-0709`)
+5. (Optional) Adjust **Grok Integration: Max Tokens** for longer or shorter responses (default: 9000)
+6. You're ready to go!
 
 ## 💬 Using Grok Chat
 

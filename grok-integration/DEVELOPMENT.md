@@ -1,4 +1,34 @@
+
 # Grok Integration - Development Guide
+
+## Index
+
+- [Development Setup](#development-setup)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Building the Extension](#building-the-extension)
+- [Packaging for Distribution](#packaging-for-distribution)
+- [Version Management](#version-management)
+- [Development Workflow](#development-workflow)
+- [Features (Technical)](#features-technical)
+- [Chat Participant Integration](#chat-participant-integration)
+- [Commands and Shortcuts](#commands-and-shortcuts)
+- [Slash Commands](#slash-commands)
+- [Configuration](#configuration)
+- [File Structure](#file-structure)
+- [Extension Manifest (packagejson)](#extension-manifest-packagejson)
+- [API Integration](#api-integration)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Troubleshooting Development](#troubleshooting-development)
+- [Contributing](#contributing)
+- [Release Process](#release-process)
+- [Architecture Notes](#architecture-notes)
+- [Chat Participant Flow](#chat-participant-flow)
+- [Context Integration](#context-integration)
+- [Development Environment](#development-environment-ddev--vs-code--typescript)
+- [Code Compile Instructions](#code-compile-instructions)
+- [Package Instructions](#package-instructions)
 
 A VS Code extension that integrates Grok AI into your development workflow.
 
