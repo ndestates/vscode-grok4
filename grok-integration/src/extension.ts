@@ -170,6 +170,43 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.postMessage({ command: 'saveFile' });
               });
 
+              function copyToClipboard(text) {
+                // Try navigator.clipboard first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(text).then(() => {
+                    vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
+                  }, (err) => {
+                    // Fallback to execCommand if clipboard API fails
+                    fallbackCopy(text, err);
+                  });
+                } else {
+                  fallbackCopy(text);
+                }
+              }
+
+              function fallbackCopy(text, origError) {
+                try {
+                  const textarea = document.createElement('textarea');
+                  textarea.value = text;
+                  textarea.setAttribute('readonly', '');
+                  textarea.style.position = 'absolute';
+                  textarea.style.left = '-9999px';
+                  document.body.appendChild(textarea);
+                  textarea.select();
+                  const successful = document.execCommand('copy');
+                  document.body.removeChild(textarea);
+                  if (successful) {
+                    vscode.postMessage({ command: 'showInfo', message: 'Code copied to clipboard!' });
+                  } else {
+                    vscode.postMessage({ command: 'showError', message: 'Failed to copy code.' });
+                  }
+                } catch (e) {
+                  let msg = 'Failed to copy code.';
+                  if (origError) msg += ' Clipboard API error: ' + origError;
+                  vscode.postMessage({ command: 'showError', message: msg });
+                }
+              }
+
               function setupCopyButtons() {
                 const codeBlocks = document.querySelectorAll('pre code');
                 codeBlocks.forEach((codeBlock, index) => {
@@ -195,11 +232,7 @@ export async function activate(context: vscode.ExtensionContext) {
                   copyButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const code = codeBlock.innerText;
-                    navigator.clipboard.writeText(code).then(() => {
-                      vscode.showInformationMessage('Code copied to clipboard!');
-                    }, (err) => {
-                      vscode.showErrorMessage('Failed to copy code: ' + err);
-                    });
+                    copyToClipboard(code);
                   });
                   wrapper.appendChild(copyButton);
                 });
@@ -215,6 +248,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 } else if (message.type === 'complete') {
                   document.getElementById('content').innerHTML = message.html;
                   setupCopyButtons(); // Setup copy buttons for final content
+                } else if (message.command === 'showInfo') {
+                  vscode.postMessage({ command: 'showInfo', message: message.message });
+                } else if (message.command === 'showError') {
+                  vscode.postMessage({ command: 'showError', message: message.message });
                 }
               });
             })();
