@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
 import { tokenizeText } from './utils/tokenizer';
+import { marked } from 'marked';
 
 
 // Lightweight DOM setup for DOMPurify
@@ -18,9 +19,14 @@ const MAX_REQUESTS_PER_MINUTE = 20;
 export async function activate(context: vscode.ExtensionContext) {
   try {
     // Add this timer to reset the request counter every 60 seconds
-    setInterval(() => {
+    const rateLimitInterval = setInterval(() => {
       requestCount = 0;
     }, 60000);
+    context.subscriptions.push({
+        dispose: () => {
+            clearInterval(rateLimitInterval);
+        }
+    });
 
     // Helper functions
     function redactSecrets(text: string): string {
@@ -38,10 +44,23 @@ export async function activate(context: vscode.ExtensionContext) {
         }
         return total;
       } catch {
-        // Fallback heuristic
-        const combined = [text, ...files.map(f => fs.readFileSync(f, 'utf-8'))].join(' ');
-        const cleaned = combined.trim().replace(/\s+/g, ' ');
-        return Math.ceil((cleaned.length / 4) * 1.1);
+        // Fallback heuristic (async version)
+        try {
+          const fileContents = await Promise.all(files.map(async f => {
+            try {
+              return await fs.promises.readFile(f, 'utf-8');
+            } catch {
+              return '';
+            }
+          }));
+          const combined = [text, ...fileContents].join(' ');
+          const cleaned = combined.trim().replace(/\s+/g, ' ');
+          return Math.ceil((cleaned.length / 4) * 1.1);
+        } catch {
+          // If even async fails, just estimate from text
+          const cleaned = text.trim().replace(/\s+/g, ' ');
+          return Math.ceil((cleaned.length / 4) * 1.1);
+        }
       }
     }
 
@@ -124,7 +143,16 @@ export async function activate(context: vscode.ExtensionContext) {
           <script>
             (function() {
               const vscode = acquireVsCodeApi();
-              
+              // Additional sanitization function for streamed content
+              function escapeHtml(unsafe) {
+                return unsafe
+                  .replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;")
+                  .replace(/"/g, "&quot;")
+                  .replace(/'/g, "&#039;");
+              }
+
               document.getElementById('save-button').addEventListener('click', () => {
                 vscode.postMessage({ command: 'saveFile' });
               });
@@ -167,7 +195,9 @@ export async function activate(context: vscode.ExtensionContext) {
               window.addEventListener('message', event => {
                 const message = event.data;
                 if (message.type === 'update') {
-                  document.getElementById('content').innerHTML += message.content;
+                  // Sanitize streamed content before rendering
+                  const sanitizedContent = escapeHtml(message.content);
+                  document.getElementById('content').innerHTML += sanitizedContent;
                   setupCopyButtons(); // Setup copy buttons for new content
                 } else if (message.type === 'complete') {
                   document.getElementById('content').innerHTML = message.html;
@@ -182,13 +212,9 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     function convertMarkdownToHtml(markdown: string): string {
-      let html = markdown
-        .replace(/\n/g, '<br>')
-        .replace(/```(\w+)?\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>');
-      return purify.sanitize(html);
+      // Use marked for markdown parsing, then sanitize
+      const html = marked.parse(markdown, { breaks: true });
+      return purify.sanitize(typeof html === 'string' ? html : '');
     }
 
     // API functions
@@ -217,10 +243,12 @@ export async function activate(context: vscode.ExtensionContext) {
           panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
           return;
         }
+        const config = vscode.workspace.getConfiguration('grokIntegration');
+        const maxTokens = config.get<number>('maxTokens') || 9000;
         const stream = await openai.chat.completions.create({
           model: 'grok-4-0709',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 9000,
+          max_tokens: maxTokens,
           temperature: 0.5,
           stream: true,
         });
@@ -235,7 +263,22 @@ export async function activate(context: vscode.ExtensionContext) {
         panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
         return fullResponse; // Return the raw markdown content
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        let errorMsg = 'Unknown error';
+        if (error instanceof Error) {
+          errorMsg = error.message;
+          if (error.stack) {
+            console.error('processGrokRequest error stack:', error.stack);
+          } else {
+            console.error('processGrokRequest error:', error);
+          }
+        } else {
+          try {
+            errorMsg = JSON.stringify(error);
+          } catch {
+            errorMsg = String(error);
+          }
+          console.error('processGrokRequest non-Error:', error);
+        }
         panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: ' + errorMsg + '</p>' });
         return `# Error\n\n${errorMsg}`; // Return error as markdown
       }
@@ -426,7 +469,7 @@ export async function activate(context: vscode.ExtensionContext) {
               { role: 'system', content: systemMessage },
               { role: 'user', content: userMessage }
             ],
-            max_tokens: 9000,
+            max_tokens: maxTokens,
             temperature: 0.2,
             stream: true,
           });
@@ -636,40 +679,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     };
     context.subscriptions.push(participant);
-    // Register multi-file upload command
-    let disposable = vscode.commands.registerCommand('grok.uploadFiles', async (...args: any[]) => {
-      const uris: vscode.Uri[] = args[0] instanceof Array ? args[0] : [args[0]];
-
-      // Privacy consent
-      const consent = await vscode.window.showInformationMessage(
-        `Do you consent to sharing contents of ${uris.length} file(s) with Grok? This is for context only.`,
-        { modal: true },
-        'Yes', 'No'
-      );
-      if (consent !== 'Yes') {
-        vscode.window.showInformationMessage('Upload cancelled for privacy.');
-        return;
-      }
-
-      // Process multiple files
-      const fileContents = await Promise.all(uris.map(async uri => {
-        try {
-          const content = await vscode.workspace.fs.readFile(uri);
-          return { path: uri.fsPath, content: Buffer.from(content).toString('utf-8') };
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          vscode.window.showErrorMessage(`Failed to read file ${uri.fsPath}: ${errorMsg}`);
-          return null;
-        }
-      })).then(results => results.filter(Boolean));
-
-      // Send to Grok or handle context (implement your integration here)
-      // For example: await sendToGrok(fileContents);
-
-      vscode.window.showInformationMessage(`Uploaded ${fileContents.length} files for context.`);
-    });
-
-    context.subscriptions.push(disposable);
 
     // Register commands
     const commands = [
@@ -681,7 +690,6 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('grok-integration.editWithGrok', () => editWithGrokCommand()),
       vscode.commands.registerCommand('grok-integration.uploadFiles', () => uploadFilesCommand()),
       vscode.commands.registerCommand('grok-integration.showTokenCount', () => showTokenCountCommand()),
-      vscode.commands.registerCommand('grok-integration.debugTest', () => debugTestCommand()),
       testConnectionCommand,
       vscode.commands.registerCommand('grok-integration.securityFix', () => securityFixCommand(context))
     ];
@@ -704,49 +712,4 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
-}
-
-// Function to get webview content (update or add this)
-function getWebviewContent(markdown: string): string {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background-color: var(--vscode-editor-background); padding: 20px; }
-        h1, h2, h3 { color: var(--vscode-foreground); }
-        code { background-color: var(--vscode-editor-background); padding: 2px 4px; border-radius: 4px; }
-        pre { background-color: var(--vscode-editor-background); padding: 10px; border-radius: 4px; overflow-x: auto; }
-        a { color: var(--vscode-textLink-foreground); }
-      </style>
-    </head>
-    <body>
-      ${markdown}  // Assuming markdown is already converted to HTML if needed; use vscode.markdown-it or similar if not
-    </body>
-    </html>
-  `;
-}
-
-// New function to save document (incorporating suggested change)
-async function saveDocument(content: string, fileName: string) {
-  let saveFolder: vscode.Uri | undefined;
-
-  // Try to get the folder from the active editor
-  const activeEditor = vscode.window.activeTextEditor;
-  if (activeEditor) {
-    const activeFileUri = activeEditor.document.uri;
-    saveFolder = vscode.Uri.file(path.dirname(activeFileUri.fsPath));
-  } else if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-    // Fallback to the first workspace folder
-    saveFolder = vscode.workspace.workspaceFolders[0].uri;
-  } else {
-    vscode.window.showErrorMessage('No workspace folder open.');
-    return;
-  }
-
-  const filePath = vscode.Uri.joinPath(saveFolder, fileName);
-  await fs.promises.writeFile(filePath.fsPath, content, 'utf8');
-  vscode.window.showInformationMessage(`Saved to ${filePath.fsPath}`);
 }
