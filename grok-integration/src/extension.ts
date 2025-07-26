@@ -93,6 +93,7 @@ export async function activate(context: vscode.ExtensionContext) {
               background: var(--vscode-editor-background);
               color: var(--vscode-editor-foreground);
               font-family: var(--vscode-font-family);
+              font-size: 1rem;
               padding: 1em;
             }
             .action-bar {
@@ -110,9 +111,17 @@ export async function activate(context: vscode.ExtensionContext) {
               border: 1px solid var(--vscode-button-border);
               border-radius: 3px;
               padding: 4px 10px;
+              font-size: 1rem;
+              transition: background 0.2s, color 0.2s, border 0.2s;
             }
-            .action-button:hover {
+            .action-button:hover,
+            .action-button:focus-visible {
               background: var(--vscode-button-hover-background);
+              color: var(--vscode-button-foreground);
+              outline: 2px solid var(--vscode-focus-border);
+            }
+            .action-button:focus {
+              outline: 2px solid var(--vscode-focus-border);
             }
             .code-block-wrapper {
               position: relative;
@@ -126,6 +135,13 @@ export async function activate(context: vscode.ExtensionContext) {
               margin: 0;
               white-space: pre-wrap;
               word-wrap: break-word;
+              font-size: 0.95rem;
+              background: var(--vscode-editor-background);
+              color: var(--vscode-editor-foreground);
+            }
+            code {
+              font-family: var(--vscode-editor-font-family, monospace);
+              font-size: 0.95rem;
             }
             .copy-button {
               position: absolute;
@@ -137,14 +153,25 @@ export async function activate(context: vscode.ExtensionContext) {
               border: 1px solid var(--vscode-button-border);
               border-radius: 3px;
               padding: 2px 6px;
-              opacity: 0.6;
-              transition: opacity 0.2s;
+              opacity: 0.8;
+              transition: opacity 0.2s, background 0.2s, color 0.2s;
             }
-            .copy-button:hover {
+            .copy-button:hover,
+            .copy-button:focus-visible {
               opacity: 1;
+              background: var(--vscode-button-hover-background);
+              outline: 2px solid var(--vscode-focus-border);
             }
             .copy-button:focus {
-              outline: 1px solid var(--vscode-focus-border);
+              outline: 2px solid var(--vscode-focus-border);
+            }
+            @media (max-width: 600px) {
+              body {
+                font-size: 0.95rem;
+              }
+              .action-button, pre, code {
+                font-size: 0.9rem;
+              }
             }
           </style>
         </head>
