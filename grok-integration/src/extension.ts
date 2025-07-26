@@ -524,7 +524,6 @@ const testConnectionCommand = vscode.commands.registerCommand('grok-integration.
   }
 });
 
-
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
 const purify = createDOMPurify(window as any);
@@ -540,6 +539,8 @@ function getRequestCount(context: vscode.ExtensionContext): number {
 function setRequestCount(context: vscode.ExtensionContext, count: number) {
   context.globalState.update('grokRequestCount', count);
 }
+
+let extensionDisposables: vscode.Disposable[] = [];
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
@@ -940,24 +941,24 @@ export async function activate(context: vscode.ExtensionContext) {
       })
     ];
     context.subscriptions.push(...commands);
+    extensionDisposables.push(...commands);
 
-    // Register context menu items (wrapped in try/catch)
-    context.subscriptions.push(
-      vscode.commands.registerCommand('grok-integration.explainCodeContext', async () => {
-        try {
-          await explainCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Explain Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.reviewCodeContext', async () => {
-        try {
-          await reviewCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Review Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
-        }
-      })
-    );
+    const explainContextCmd = vscode.commands.registerCommand('grok-integration.explainCodeContext', async () => {
+      try {
+        await explainCodeCommand(context);
+      } catch (err) {
+        vscode.window.showErrorMessage('Error running Explain Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
+      }
+    });
+    const reviewContextCmd = vscode.commands.registerCommand('grok-integration.reviewCodeContext', async () => {
+      try {
+        await reviewCodeCommand(context);
+      } catch (err) {
+        vscode.window.showErrorMessage('Error running Review Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
+      }
+    });
+    context.subscriptions.push(explainContextCmd, reviewContextCmd);
+    extensionDisposables.push(explainContextCmd, reviewContextCmd);
 
     // Show success message
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
@@ -970,5 +971,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
+  for (const disposable of extensionDisposables) {
+    try {
+      disposable.dispose();
+    } catch (err) {
+      console.error('Error disposing extension resource:', err);
+    }
+  }
+  extensionDisposables = [];
 }
 
