@@ -234,7 +234,8 @@ ddev exec "npm test"
 ### Local Installation
 ```bash
 # Install from VSIX
-code --install-extension grok-integration-1.0.0.vsix
+code --install-extension grok-integration-1.5.9.vsix
+code --uninstall-extension grok-integration-1.5.8.vsix
 ```
 
 ### VS Code Marketplace (Future)

@@ -1,3 +1,8 @@
+# 1.6.0 (2025-07-26)
+- Unique Grok Chat panel with Ask/Agent mode switcher
+- Agent mode: Apply code changes directly from Grok suggestions
+- Ask mode: Q&A and explanations
+- UI improvements and Grok branding
 
 # Change Log
 
