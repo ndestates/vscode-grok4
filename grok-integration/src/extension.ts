@@ -726,9 +726,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
           if (fileUris.length > 0) {
             try {
-              // Extract file names and format as a bulleted Markdown list for better readability
-              const fileNamesList = fileUris
-                .map(uri => `- ${vscode.workspace.asRelativePath(uri)}`)
+              // Show full file paths for clarity
+              const filePathsList = fileUris
+                .map(uri => `- ${uri.fsPath}`)
                 .join('\n');
 
               // Handle singular/plural for UX polish
@@ -742,7 +742,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
               // Use showWarningMessage for emphasis on data sharing
               const consent = await vscode.window.showWarningMessage(
-                `Do you consent to sending the content of the following ${fileWord} to the xAI API?${PRIVACY_NOTE}\n\n${fileNamesList}`,
+                `Do you consent to sending the content of the following ${fileWord} to the xAI API?${PRIVACY_NOTE}\n\n${filePathsList}`,
                 { modal: true },
                 YES_BUTTON,
                 NO_BUTTON
@@ -750,7 +750,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
               // Optional: Handle the response explicitly (e.g., proceed or abort)
               if (consent === YES_BUTTON) {
-                // Proceed with sending (not shown here)
                 vscode.window.showInformationMessage(`Sending ${fileCount} ${fileWord} to xAI... Buckle up!`);
               } else if (consent === NO_BUTTON) {
                 vscode.window.showInformationMessage('Operation cancelled. Your files are safe with you.');
