@@ -233,12 +233,12 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     const redactedCode = redactSecrets(code);
     const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
     const tokenCount = await estimateTokens(prompt);
-    if (tokenCount > 8000) {
-      panel.webview.postMessage({ type: 'complete', html: '<p>⚠️ Prompt too long (estimated ' + tokenCount + ' tokens). Shorten your selection.</p>' });
-      return;
-    }
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const maxTokens = config.get<number>('maxTokens') || 9000;
+    if (tokenCount > maxTokens) {
+      panel.webview.postMessage({ type: 'complete', html: `<p>❌ Request too large: estimated ${tokenCount} tokens exceeds your configured hard limit of ${maxTokens}. Please reduce your selection or increase the limit in settings.</p>` });
+      return;
+    }
     // Get model from settings, fallback to default
     const modelName = config.get<string>('model') || 'grok-4-0709';
     const stream = await openai.chat.completions.create({
@@ -813,18 +813,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
         const maxTokens = config.get<number>('maxTokens') || 9000;
         const tokenCount = await estimateTokens(systemMessage + userMessage);
-
         if (tokenCount > maxTokens) {
-          const choice = await vscode.window.showWarningMessage(
-            `The request size is approximately ${tokenCount} tokens, which exceeds your configured limit of ${maxTokens}. Large requests may be slow, costly, or fail.`,
-            { modal: true },
-            'Proceed Anyway'
-          );
-
-          if (choice !== 'Proceed Anyway') {
-            stream.markdown('Request cancelled due to large token size.');
-            return {}; // CORRECTED: Must return a ChatResult object
-          }
+          stream.markdown(`❌ Request too large: estimated ${tokenCount} tokens exceeds your configured hard limit of ${maxTokens}. Please reduce your selection or increase the limit in settings.`);
+          return {}; // Block request, do not allow user to proceed
         }
 
         try {
