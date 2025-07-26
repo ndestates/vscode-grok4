@@ -239,8 +239,10 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     }
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const maxTokens = config.get<number>('maxTokens') || 9000;
+    // Get model from settings, fallback to default
+    const modelName = config.get<string>('model') || 'grok-4-0709';
     const stream = await openai.chat.completions.create({
-      model: 'grok-4-0709',
+      model: modelName,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: maxTokens,
       temperature: 0.5,
@@ -311,9 +313,11 @@ async function estimateTokens(text: string, files: string[] = []): Promise<numbe
 
 async function testGrokConnection(apiKey: string): Promise<boolean> {
   try {
+    const config = vscode.workspace.getConfiguration('grokIntegration');
+    const modelName = config.get<string>('model') || 'grok-4-0709';
     const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
     const response = await openai.chat.completions.create({
-      model: 'grok-4-0709',
+      model: modelName,
       messages: [{ role: 'user', content: 'Hi' }],
       max_tokens: 3,
       temperature: 0.1
@@ -334,6 +338,11 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 
   const config = vscode.workspace.getConfiguration('grokIntegration');
   let apiKey = config.get<string>('apiKey');
+  // Inform user about model setting
+  const modelName = config.get<string>('model') || 'grok-4-0709';
+  if (!modelName) {
+    vscode.window.showWarningMessage('No Grok model is set. Please check your settings for available models.');
+  }
   // Robust API key check
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     const newKey = await vscode.window.showInputBox({
@@ -701,6 +710,7 @@ export async function activate(context: vscode.ExtensionContext) {
       async handleRequest(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> {
         const config = vscode.workspace.getConfiguration('grokIntegration');
         const apiKey = config.get<string>('apiKey');
+        const modelName = config.get<string>('model') || 'grok-4-0709';
         // Robust API key check
         if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
           stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
@@ -820,7 +830,7 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
           stream.progress('🔍 Connecting to Grok...');
           const response = await openai.chat.completions.create({
-            model: 'grok-4-0709',
+            model: modelName,
             messages: [
               { role: 'system', content: systemMessage },
               { role: 'user', content: userMessage }

@@ -180,6 +180,12 @@
           "default": 9000,
           "description": "Maximum number of tokens for Grok responses. The extension estimates token usage before sending a request and will prompt you if your request is large. Increase for longer answers, decrease to save usage. 1 token ≈ 4 characters.",
           "markdownDescription": "Maximum number of tokens for Grok responses. The extension estimates token usage before sending a request and will prompt you if your request is large. Increase for longer answers, decrease to save usage. **Tip:** 1 token ≈ 4 characters."
+        },
+        "grokIntegration.model": {
+          "type": "string",
+          "default": "grok-4-0709",
+          "description": "Grok model name to use for completions. Check the latest available models at https://x.ai/docs/models and update this setting as needed.",
+          "markdownDescription": "Grok model name to use for completions. **Check the latest available models:** [x.ai/docs/models](https://x.ai/docs/models) and update this setting as needed."
         }
       }
     }
