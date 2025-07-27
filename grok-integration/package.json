@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "publisher": "ndestates",
   "repository": {
     "type": "git",
@@ -202,7 +202,8 @@
     "dompurify": "^3.0.0",
     "linkedom": "^0.16.0",
     "marked": "^16.1.1",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "tiktoken": "^1.0.21"
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

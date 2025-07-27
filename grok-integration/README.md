@@ -1,17 +1,15 @@
 
-# Grok Integration for VS Code
+# Grok AI Integration for VS Code
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
-## 🚀 New in v1.5.7
+## 🚀 New in v1.6.0
 
--   **🧠 Enhanced Chat Context**: Attach multiple files to your chat prompts using `#file:` for project-aware answers and multi-file code edits.
--   **🔒 User Consent**: The extension now asks for your permission before sending file contents to the API, putting you in control.
--   **⚡ Hard Token Limit**: Requests exceeding your configured token limit are blocked unless you increase the limit in settings.
--   **💡 Suggest Improvements**: Right-click command for actionable suggestions for your selected code.
--   **🛡️ Security**: Secrets in file contents are now redacted before sending to xAI.
--   **📝 Error Log Access**: View and clear the extension error log via commands.
--   **🎯 Direct & Professional AI**: The AI provides concise, to-the-point answers without conversational filler.
+-   **� Agent & Ask Modes**: Switch between "Agent Mode" to apply code changes directly and "Ask Mode" for Q&A.
+-   **⚡ Apply Code Changes**: In Agent Mode, Grok can suggest and apply code edits across your workspace with a single click.
+-   **� Custom Grok Panel**: A unique chat panel dedicated to your interactions with Grok.
+-   **� Enhanced Security & Context**: Redact secrets and attach multiple files for project-aware answers.
+-   **� UI Improvements**: A cleaner, more intuitive interface for a better user experience.
 
 ---
 
@@ -20,7 +18,7 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 ### 1. Install the Extension
 - Open VS Code
 - Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`)
-- Search for "Grok Integration"
+- Search for "Grok AI Integration"
 - Click "Install"
 - Restart VS Code
 
@@ -32,10 +30,10 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 
 ### 3. Configure the Extension
 1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for "Grok Integration"
-3. Paste your API key in the **Grok Integration: Api Key** field
-4. (Optional) Set your preferred Grok model in **Grok Integration: Model** (default: `grok-4-0709`)
-5. (Optional) Adjust **Grok Integration: Max Tokens** for longer or shorter responses (default: 9000)
+2. Search for "Grok AI Integration"
+3. Paste your API key in the **Grok AI Integration: Api Key** field
+4. (Optional) Set your preferred Grok model in **Grok AI Integration: Model** (default: `grok-4-0709`)
+5. (Optional) Adjust **Grok AI Integration: Max Tokens** for longer or shorter responses (default: 9000)
 6. You're ready to go!
 
 ## 💬 Using Grok Chat

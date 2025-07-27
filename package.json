@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "linkedom": "^0.18.11",
-    "openai": "^5.9.0"
+    "openai": "^5.9.0",
+    "tiktoken": "^1.0.21"
   },
   "devDependencies": {
     "vsce": "^2.15.0"

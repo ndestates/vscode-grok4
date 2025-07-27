@@ -1,12 +1,19 @@
+# 1.6.1 (2025-07-26)
+- Default Grok model updated to `grok-4-0709` for improved compatibility and performance.
+
 # 1.6.0 (2025-07-26)
-- Unique Grok Chat panel with Ask/Agent mode switcher
+- Unique Grok AI Integration chat panel with Ask/Agent mode switcher
 - Agent mode: Apply code changes directly from Grok suggestions
-- Ask mode: Q&A and explanations
+- Ask mode: Q&A and code explanations
 - UI improvements and Grok branding
+- Tokenizer now uses `@dqbd/tiktoken` for accurate token counting (ensure `tiktoken_bg.wasm` is present)
+- Removed globalState rate limiting; reverted to simple in-memory rate limiting for reliability
+- Improved error handling and diagnostics for activation issues
+- Updated development and packaging instructions in DEVELOPMENT.md
 
 # Change Log
 
-All notable changes to the "grok-integration" extension will be documented in this file.
+All notable changes to the "Grok AI Integration" extension will be documented in this file.
 
 ## [1.5.7] - 2025-07-26
 

@@ -266,7 +266,7 @@ async function estimateTokens(text: string, files: string[] = []): Promise<numbe
 async function testGrokConnection(apiKey: string): Promise<boolean> {
   try {
     const config = vscode.workspace.getConfiguration('grokIntegration');
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+    const modelName = config.get<string>('model') || 'grok-beta';
     const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
     const response = await openai.chat.completions.create({
       model: modelName,
@@ -292,7 +292,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 
   const config = vscode.workspace.getConfiguration('grokIntegration');
   let apiKey = config.get<string>('apiKey');
-  const modelName = config.get<string>('model') || 'grok-4-0709';
+  const modelName = config.get<string>('model') || 'grok-beta';
   if (!modelName) {
     vscode.window.showWarningMessage('No Grok model is set. Please check your settings for available models.');
   }
@@ -401,7 +401,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
       panel.webview.postMessage({ type: 'complete', html: `<p>❌ Request too large: estimated ${tokenCount} tokens exceeds your configured hard limit of ${maxTokens}. Please reduce your selection or increase the limit in settings.</p>` });
       return;
     }
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+    const modelName = config.get<string>('model') || 'grok-beta';
     const stream = await openai.chat.completions.create({
       model: modelName,
       messages: [{ role: 'user', content: prompt }],
@@ -599,7 +599,7 @@ const chatHandler = {
   async handleRequest(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> {
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const apiKey = config.get<string>('apiKey');
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+    const modelName = config.get<string>('model') || 'grok-beta';
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
       return {};
