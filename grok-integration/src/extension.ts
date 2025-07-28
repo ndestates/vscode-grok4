@@ -511,16 +511,6 @@ async function editWithGrokCommand(context: vscode.ExtensionContext) {
   await showGrokPanel(context, 'Edit with Grok', code, language, 'edit');
 }
 
-async function uploadFilesCommand() {
-  const uris = await vscode.window.showOpenDialog({ canSelectMany: true, openLabel: 'Upload Files' });
-  if (!uris || uris.length === 0) {
-    vscode.window.showInformationMessage('No files selected for upload.');
-    return;
-  }
-  vscode.window.showInformationMessage(`Selected files: ${uris.map(u => u.fsPath).join(', ')}`);
-  // Add further upload logic here if needed
-}
-
 async function showTokenCountCommand() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -799,13 +789,6 @@ export async function activate(context: vscode.ExtensionContext) {
           await editWithGrokCommand(context);
         } catch (err) {
           vscode.window.showErrorMessage('Error running Edit with Grok: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.uploadFiles', async () => {
-        try {
-          await uploadFilesCommand();
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Upload Files: ' + (err instanceof Error ? err.message : String(err)));
         }
       }),
       vscode.commands.registerCommand('grok-integration.showTokenCount', async () => {

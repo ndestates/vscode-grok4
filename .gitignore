@@ -67,7 +67,7 @@ coverage/
 # Temporary folders
 tmp/
 temp/
-
+temp_compare/
 # Workspace specific files
 
 *.code-workspace

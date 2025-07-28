@@ -30,7 +30,6 @@
     "onCommand:grok-integration.debugTest",
     "onCommand:grok-integration.securityFix",
     "onCommand:grok-integration.showTokenCount",
-    "onCommand:grok-integration.uploadFiles",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
@@ -86,12 +85,7 @@
         "title": "🔢 Grok: Show Token Count",
         "description": "Display the estimated token count for your selected code in a webview panel"
       },
-      {
-        "command": "grok-integration.uploadFiles",
-        "title": "📂 Grok: Upload Files for Analysis",
-        "description": "Select and upload multiple files to Grok for review or analysis"
-      }
-    ],
+          ],
     "chatParticipants": [
       {
         "id": "grok-integration.grok",
@@ -151,11 +145,8 @@
         {
           "command": "grok-integration.showTokenCount",
           "when": "editorHasSelection"
-        },
-        {
-          "command": "grok-integration.uploadFiles",
-          "when": "editorTextFocus"
         }
+       
       ]
     },
     "keybindings": [
