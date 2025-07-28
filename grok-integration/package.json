@@ -2,8 +2,9 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.6.1",
+  "version": "1.6.3",
   "publisher": "ndestates",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/ndestates/vscode-grok4.git"
@@ -14,6 +15,7 @@
     "vscode": "^1.102.0"
   },
   "categories": [
+    "AI",
     "Machine Learning",
     "Programming Languages",
     "Other"
@@ -84,8 +86,8 @@
         "command": "grok-integration.showTokenCount",
         "title": "🔢 Grok: Show Token Count",
         "description": "Display the estimated token count for your selected code in a webview panel"
-      },
-          ],
+      }
+    ],
     "chatParticipants": [
       {
         "id": "grok-integration.grok",
@@ -146,7 +148,6 @@
           "command": "grok-integration.showTokenCount",
           "when": "editorHasSelection"
         }
-       
       ]
     },
     "keybindings": [
@@ -214,5 +215,17 @@
     "typescript": "^5.8.3",
     "webpack": "^5.100.1",
     "webpack-cli": "^6.0.1"
-  }
+  },
+  "keywords": [
+    "grok",
+    "ai",
+    "chatgpt",
+    "claude",
+    "copilot",
+    "code assistant",
+    "programming ai",
+    "vscode ai",
+    "grok ai",
+    "xai"
+  ]
 }

@@ -1,15 +1,26 @@
-
 # Grok AI Integration for VS Code
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
+## 🚀 New in v1.6.2
+
+-   **🔧 Bug Fixes**: Improved extension stability and performance
+-   **📦 Package Optimization**: Reduced bundle size for faster installation
+-   **🔄 Dependency Updates**: Updated core dependencies for better compatibility
+
+## 🚀 New in v1.6.1
+
+-   **🔧 Stability Improvements**: Enhanced error handling and logging
+-   **🛠️ Code Cleanup**: Removed temporary file upload features and improved code organization
+-   **📝 Documentation Updates**: Updated development guides and troubleshooting sections
+
 ## 🚀 New in v1.6.0
 
--   **� Agent & Ask Modes**: Switch between "Agent Mode" to apply code changes directly and "Ask Mode" for Q&A.
+-   **🤖 Agent & Ask Modes**: Switch between "Agent Mode" to apply code changes directly and "Ask Mode" for Q&A.
 -   **⚡ Apply Code Changes**: In Agent Mode, Grok can suggest and apply code edits across your workspace with a single click.
--   **� Custom Grok Panel**: A unique chat panel dedicated to your interactions with Grok.
--   **� Enhanced Security & Context**: Redact secrets and attach multiple files for project-aware answers.
--   **� UI Improvements**: A cleaner, more intuitive interface for a better user experience.
+-   **💬 Custom Grok Panel**: A unique chat panel dedicated to your interactions with Grok.
+-   **🔒 Enhanced Security & Context**: Redact secrets and attach multiple files for project-aware answers.
+-   **🎨 UI Improvements**: A cleaner, more intuitive interface for a better user experience.
 
 ---
 
