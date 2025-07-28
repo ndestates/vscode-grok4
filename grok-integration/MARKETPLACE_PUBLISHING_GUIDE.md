@@ -1,3 +1,5 @@
+
+
 # VS Code Marketplace Publishing Guide
 
 ## Complete Step-by-Step Guide to Publishing Grok Integration Extension

@@ -721,8 +721,6 @@ const chatHandler = {
 };
 
 // Extension Lifecycle
-let extensionDisposables: vscode.Disposable[] = [];
-
 export async function activate(context: vscode.ExtensionContext) {
   try {
     // Reset requestCount every minute
@@ -740,64 +738,38 @@ export async function activate(context: vscode.ExtensionContext) {
     participant.followupProvider = {
       provideFollowups(result: vscode.ChatResult, chatContext: vscode.ChatContext, token: vscode.CancellationToken) {
         return [
-          { prompt: 'Explain this in more detail', label: '🔍 More details', command: 'explain' },
+          { prompt: 'Explain this in more detail', label: '🔍 More details', command: 'grok-integration.explainCode' },
           { prompt: 'Show me an example', label: '💡 Show example' },
-          { prompt: 'How can I improve this code?', label: '⚡ Improve code', command: 'review' }
+          { prompt: 'How can I improve this code?', label: '⚡ Improve code', command: 'grok-integration.reviewCode' }
         ];
       }
     };
     context.subscriptions.push(participant);
 
+    const registerCancellableCommand = (commandId: string, task: (token: vscode.CancellationToken) => Promise<void>) => {
+      return vscode.commands.registerCommand(commandId, () => {
+        return vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: `Grok: ${commandId.split('.').pop()}`,
+          cancellable: true
+        }, async (progress, token) => {
+          try {
+            await task(token);
+          } catch (err) {
+            vscode.window.showErrorMessage(`Error in ${commandId}: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        });
+      });
+    };
+
     const commands = [
-      vscode.commands.registerCommand('grok-integration.askGrok', async () => {
-        try {
-          await askGrokCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Grok Response: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.explainCode', async () => {
-        try {
-          await explainCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Grok Explanation: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.reviewCode', async () => {
-        try {
-          await reviewCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Grok Review: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.suggestImprovements', async () => {
-        try {
-          await suggestImprovementsCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Grok Suggestions: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.askGrokInline', async () => {
-        try {
-          await askGrokInlineCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Grok Inline: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.editWithGrok', async () => {
-        try {
-          await editWithGrokCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Edit with Grok: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.showTokenCount', async () => {
-        try {
-          await showTokenCountCommand();
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Show Token Count: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
+      registerCancellableCommand('grok-integration.askGrok', async (token) => await askGrokCommand(context, token)),
+      registerCancellableCommand('grok-integration.explainCode', async (token) => await explainCodeCommand(context, token)),
+      registerCancellableCommand('grok-integration.reviewCode', async (token) => await reviewCodeCommand(context, token)),
+      registerCancellableCommand('grok-integration.suggestImprovements', async (token) => await suggestImprovementsCommand(context, token)),
+      registerCancellableCommand('grok-integration.askGrokInline', async (token) => await askGrokInlineCommand(context, token)),
+      registerCancellableCommand('grok-integration.editWithGrok', async (token) => await editWithGrokCommand(context, token)),
+      registerCancellableCommand('grok-integration.showTokenCount', async (token) => await showTokenCountCommand(token)),
       vscode.commands.registerCommand('grok-integration.testConnection', async () => {
         const config = vscode.workspace.getConfiguration('grokIntegration');
         const apiKey = config.get<string>('apiKey');
@@ -813,46 +785,13 @@ export async function activate(context: vscode.ExtensionContext) {
           vscode.window.showErrorMessage('❌ Failed to connect to Grok API. Please check your API key and network.');
         }
       }),
-      vscode.commands.registerCommand('grok-integration.securityFix', async () => {
-        try {
-          await securityFixCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Security Fix: ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.explainCodeContext', async () => {
-        try {
-          await explainCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Explain Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.reviewCodeContext', async () => {
-        try {
-          await reviewCodeCommand(context);
-        } catch (err) {
-          vscode.window.showErrorMessage('Error running Review Code (context menu): ' + (err instanceof Error ? err.message : String(err)));
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.showErrorLog', async () => {
-        try {
-          await showErrorLogCommand();
-        } catch (err) {
-          vscode.window.showErrorMessage('Error showing error log: ' + (err instanceof Error ? err.message : String(err)));
-          logExtensionError(err, 'showErrorLogCommand');
-        }
-      }),
-      vscode.commands.registerCommand('grok-integration.clearErrorLog', async () => {
-        try {
-          await clearErrorLogCommand();
-        } catch (err) {
-          vscode.window.showErrorMessage('Error clearing error log: ' + (err instanceof Error ? err.message : String(err)));
-          logExtensionError(err, 'clearErrorLogCommand');
-        }
-      })
+      registerCancellableCommand('grok-integration.securityFix', async (token) => await securityFixCommand(context, token)),
+      registerCancellableCommand('grok-integration.explainCodeContext', async (token) => await explainCodeCommand(context, token)),
+      registerCancellableCommand('grok-integration.reviewCodeContext', async (token) => await reviewCodeCommand(context, token)),
+      registerCancellableCommand('grok-integration.showErrorLog', async (token) => await showErrorLogCommand(token)),
+      registerCancellableCommand('grok-integration.clearErrorLog', async (token) => await clearErrorLogCommand(token))
     ];
     context.subscriptions.push(...commands);
-    extensionDisposables.push(...commands);
 
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
   } catch (error) {
@@ -864,13 +803,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
-  for (const disposable of extensionDisposables) {
-    try {
-      disposable.dispose();
-    } catch (err) {
-      console.error('Error disposing extension resource:', err);
-    }
-  }
-  extensionDisposables = [];
+  // Deactivation relies on context.subscriptions disposing automatically
 }
 
