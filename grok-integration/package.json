@@ -181,7 +181,7 @@
         },
         "grokIntegration.model": {
           "type": "string",
-          "default": "grok-beta",
+          "default": "grok-4-0709",
           "description": "Grok model name to use for completions. You must have access to the selected model. Check the latest available models at https://x.ai/docs/models and update this setting as needed.",
           "markdownDescription": "Grok model name to use for completions. **Requirements:** You must have access to the selected model (see your team at [console.x.ai](https://console.x.ai)). **Check the latest available models:** [x.ai/docs/models](https://x.ai/docs/models) and update this setting as needed."
         }
