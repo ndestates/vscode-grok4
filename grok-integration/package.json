@@ -84,7 +84,7 @@
         "command": "grok-integration.showTokenCount",
         "title": "🔢 Grok: Show Token Count",
         "description": "Display the estimated token count for your selected code in a webview panel"
-      },
+      }
           ],
     "chatParticipants": [
       {
