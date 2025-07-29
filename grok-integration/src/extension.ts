@@ -283,7 +283,7 @@ async function testGrokConnection(apiKey: string): Promise<boolean> {
 // Rate limiting using globalState
 
 // Core Functions
-async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string): Promise<void> {
+async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string, token: vscode.CancellationToken): Promise<void> {
   if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
     vscode.window.showErrorMessage('Rate limit exceeded. Please wait a minute.');
     return;
@@ -313,7 +313,11 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
   const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
   panel.webview.html = getLoadingHTML();
 
-  const rawMarkdownResponse = await processGrokRequest(panel, code, language, action, apiKey);
+  token.onCancellationRequested(() => {
+    panel.dispose();
+  });
+
+  const rawMarkdownResponse = await processGrokRequest(panel, code, language, action, apiKey, token);
 
   let currentMode = 'ask';
   panel.webview.onDidReceiveMessage(
@@ -371,6 +375,8 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
     undefined,
     context.subscriptions
   );
+}
+
 // Helper to parse Grok markdown response for code changes
 function parseGrokCodeChanges(markdown: string): Array<{file: string, code: string}> {
   const changes: Array<{file: string, code: string}> = [];
@@ -383,9 +389,8 @@ function parseGrokCodeChanges(markdown: string): Array<{file: string, code: stri
   }
   return changes;
 }
-}
 
-async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string): Promise<string | undefined> {
+async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string, token: vscode.CancellationToken): Promise<string | undefined> {
   try {
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: API key is missing or invalid. Please set your xAI API key in settings.</p>' });
@@ -411,6 +416,9 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     });
     let fullResponse = '';
     for await (const chunk of stream) {
+      if (token.isCancellationRequested) {
+        return;
+      }
       const content = chunk.choices[0]?.delta?.content || '';
       if (content) {
         fullResponse += content;
@@ -443,7 +451,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 }
 
 // Command Handlers
-async function askGrokCommand(context: vscode.ExtensionContext) {
+async function askGrokCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -453,10 +461,10 @@ async function askGrokCommand(context: vscode.ExtensionContext) {
   const code = editor.document.getText(selection) || editor.document.getText();
   const language = editor.document.languageId;
   const action = 'explain'; // Default action for askGrokCommand
-  await showGrokPanel(context, 'Grok Response', code, language, action);
+  await showGrokPanel(context, 'Grok Response', code, language, action, token);
 }
 
-async function explainCodeCommand(context: vscode.ExtensionContext) {
+async function explainCodeCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -464,10 +472,10 @@ async function explainCodeCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Grok Explanation', code, language, 'explain');
+  await showGrokPanel(context, 'Grok Explanation', code, language, 'explain', token);
 }
 
-async function reviewCodeCommand(context: vscode.ExtensionContext) {
+async function reviewCodeCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -475,10 +483,10 @@ async function reviewCodeCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Grok Review', code, language, 'review and suggest improvements for');
+  await showGrokPanel(context, 'Grok Review', code, language, 'review and suggest improvements for', token);
 }
 
-async function suggestImprovementsCommand(context: vscode.ExtensionContext) {
+async function suggestImprovementsCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -486,10 +494,10 @@ async function suggestImprovementsCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Grok Suggestions', code, language, 'suggest improvements for');
+  await showGrokPanel(context, 'Grok Suggestions', code, language, 'suggest improvements for', token);
 }
 
-async function askGrokInlineCommand(context: vscode.ExtensionContext) {
+async function askGrokInlineCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -497,10 +505,10 @@ async function askGrokInlineCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Grok Inline', code, language, 'respond to');
+  await showGrokPanel(context, 'Grok Inline', code, language, 'respond to', token);
 }
 
-async function editWithGrokCommand(context: vscode.ExtensionContext) {
+async function editWithGrokCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -508,10 +516,10 @@ async function editWithGrokCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Edit with Grok', code, language, 'edit');
+  await showGrokPanel(context, 'Edit with Grok', code, language, 'edit', token);
 }
 
-async function showTokenCountCommand() {
+async function showTokenCountCommand(token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -522,7 +530,7 @@ async function showTokenCountCommand() {
   vscode.window.showInformationMessage(`Estimated token count: ${tokenCount}`);
 }
 
-async function securityFixCommand(context: vscode.ExtensionContext) {
+async function securityFixCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor found.');
@@ -530,7 +538,7 @@ async function securityFixCommand(context: vscode.ExtensionContext) {
   }
   const code = editor.document.getText(editor.selection) || editor.document.getText();
   const language = editor.document.languageId;
-  await showGrokPanel(context, 'Security Fix', code, language, 'find and fix security vulnerabilities in');
+  await showGrokPanel(context, 'Security Fix', code, language, 'find and fix security vulnerabilities in', token);
 }
 
 async function showErrorLogCommand() {
