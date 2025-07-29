@@ -41,29 +41,72 @@ function getLoadingHTML(): string {
         .action-bar {
           position: sticky;
           top: 0;
-          background: var(--vscode-editor-background);
-          padding-bottom: 10px;
-          border-bottom: 1px solid var(--vscode-side-bar-border);
-          margin-bottom: 10px;
+          background: #013D79; /* nd-dark-blue.500 */
+          padding: 14px 10px 14px 10px;
+          border-bottom: 2px solid #0270DE; /* nd-dark-blue.400 */
+          margin-bottom: 18px;
+          display: flex;
+          gap: 12px;
+          align-items: center;
         }
-        .action-button {
+        .action-button, .action-select {
           cursor: pointer;
-          background: var(--vscode-button-background);
-          color: var(--vscode-button-foreground);
-          border: 1px solid var(--vscode-button-border);
-          border-radius: 3px;
-          padding: 4px 10px;
+          border-radius: 5px;
           font-size: 1rem;
+          font-family: inherit;
+          border: 1px solid #0270DE;
+          margin-right: 4px;
           transition: background 0.2s, color 0.2s, border 0.2s;
         }
-        .action-button:hover,
-        .action-button:focus-visible {
-          background: var(--vscode-button-hover-background);
-          color: var(--vscode-button-foreground);
-          outline: 2px solid var(--vscode-focus-border);
+        .action-button#save-button {
+          background: #4EB3D1; /* nd-light-blue.500 */
+          color: #113742; /* nd-light-blue.900 */
+          border-color: #319CBB; /* nd-light-blue.600 */
+          font-weight: bold;
         }
-        .action-button:focus {
-          outline: 2px solid var(--vscode-focus-border);
+        .action-button#save-button:hover, .action-button#save-button:focus-visible {
+          background: #319CBB; /* nd-light-blue.600 */
+          color: #fff;
+          outline: 2px solid #76C4DC; /* nd-light-blue.400 */
+        }
+        .action-select {
+          min-width: 130px;
+          padding: 6px 14px;
+          background: #4EB3D1; /* Ask Mode default */
+          color: #113742;
+          border-color: #319CBB;
+          font-weight: bold;
+        }
+        .action-select.agent-mode {
+          background: #0270DE; /* nd-dark-blue.400 */
+          color: #fff;
+          border-color: #013D79;
+        }
+        .action-select.ask-mode {
+          background: #4EB3D1; /* nd-light-blue.500 */
+          color: #113742;
+          border-color: #319CBB;
+        }
+        .action-button#apply-changes {
+          background: #0270DE; /* nd-dark-blue.400 */
+          color: #fff;
+          border-color: #013D79;
+          font-weight: bold;
+        }
+        .action-button#apply-changes:hover, .action-button#apply-changes:focus-visible {
+          background: #013D79; /* nd-dark-blue.500 */
+          outline: 2px solid #76C4DC;
+        }
+        .action-button, .action-select {
+          padding: 6px 14px;
+          background: #4EB3D1;
+          color: #113742;
+        }
+        .action-button:hover, .action-select:hover,
+        .action-button:focus-visible, .action-select:focus-visible {
+          background: #319CBB;
+          color: #fff;
+          outline: 2px solid #76C4DC;
         }
         .code-block-wrapper {
           position: relative;
@@ -90,55 +133,52 @@ function getLoadingHTML(): string {
           top: 5px;
           right: 5px;
           cursor: pointer;
-          background: var(--vscode-button-background);
-          color: var(--vscode-button-foreground);
-          border: 1px solid var(--vscode-button-border);
+          background: #319CBB;
+          color: #fff;
+          border: 1px solid #013D79;
           border-radius: 3px;
           padding: 2px 6px;
           opacity: 0.8;
           transition: opacity 0.2s, background 0.2s, color 0.2s;
         }
-        .copy-button:hover,
-        .copy-button:focus-visible {
+        .copy-button:hover, .copy-button:focus-visible {
           opacity: 1;
-          background: var(--vscode-button-hover-background);
-          outline: 2px solid var(--vscode-focus-border);
+          background: #013D79;
+          outline: 2px solid #76C4DC;
         }
         .copy-button:focus {
-          outline: 2px solid var(--vscode-focus-border);
+          outline: 2px solid #76C4DC;
         }
         @media (max-width: 600px) {
           body {
             font-size: 0.95rem;
           }
-          .action-button, pre, code {
+          .action-button, .action-select, pre, code {
             font-size: 0.9rem;
           }
         }
       </style>
-    </head>
-    <body>
-      <div class="action-bar">
-        <button id="save-button" class="action-button" title="Save response as a Markdown file" aria-label="Save response as a Markdown file">💾 Save</button>
-        <select id="mode-switch" class="action-button" title="Switch Grok Mode" aria-label="Switch Grok Mode">
-          <option value="ask">Ask Mode</option>
-          <option value="agent">Agent Mode</option>
-        </select>
-        <button id="apply-changes" class="action-button" title="Apply code changes" aria-label="Apply code changes" style="display:none;">⚡ Apply Changes</button>
-      </div>
-      <div id="content">🔍 Connecting to Grok... Please wait.</div>
       <script>
         (function() {
           const vscode = acquireVsCodeApi();
           let currentMode = 'ask';
-          function escapeHtml(unsafe) {
-            return unsafe
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;")
-              .replace(/"/g, "&quot;")
-              .replace(/'/g, "&#039;");
+          const modeSwitch = document.getElementById('mode-switch');
+          function updateModeStyles() {
+            if (modeSwitch.value === 'agent') {
+              modeSwitch.classList.remove('ask-mode');
+              modeSwitch.classList.add('agent-mode');
+            } else {
+              modeSwitch.classList.remove('agent-mode');
+              modeSwitch.classList.add('ask-mode');
+            }
           }
+          updateModeStyles();
+          modeSwitch.addEventListener('change', (e) => {
+            currentMode = e.target.value;
+            vscode.postMessage({ command: 'modeSwitch', mode: currentMode });
+            document.getElementById('apply-changes').style.display = currentMode === 'agent' ? '' : 'none';
+            updateModeStyles();
+          });
           document.getElementById('save-button').addEventListener('click', () => {
             vscode.postMessage({ command: 'saveFile' });
           });
@@ -796,8 +836,8 @@ export async function activate(context: vscode.ExtensionContext) {
       registerCancellableCommand('grok-integration.securityFix', async (token) => await securityFixCommand(context, token)),
       registerCancellableCommand('grok-integration.explainCodeContext', async (token) => await explainCodeCommand(context, token)),
       registerCancellableCommand('grok-integration.reviewCodeContext', async (token) => await reviewCodeCommand(context, token)),
-      registerCancellableCommand('grok-integration.showErrorLog', async (token) => await showErrorLogCommand(token)),
-      registerCancellableCommand('grok-integration.clearErrorLog', async (token) => await clearErrorLogCommand(token))
+      registerCancellableCommand('grok-integration.showErrorLog', async () => await showErrorLogCommand()),
+      registerCancellableCommand('grok-integration.clearErrorLog', async () => await clearErrorLogCommand())
     ];
     context.subscriptions.push(...commands);
 
