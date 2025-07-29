@@ -418,15 +418,19 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
             vscode.window.showErrorMessage('No code changes found in response.');
             return;
           }
-          const workspaceRoot = vscode.workspace.rootPath || '';
+          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
           for (const change of changes) {
             try {
+              let filePath = change.file;
+              if (filePath.startsWith('/')) {
+                filePath = filePath.slice(1);
+              }
               // Security: Validate path - must be relative, no '..', and within workspace
-              if (path.isAbsolute(change.file) || change.file.includes('..') || !change.file.startsWith('/')) {
-                vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace.`);
+              if (path.isAbsolute(filePath) || filePath.includes('..')) {
+                vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace without '..'.`);
                 continue;
               }
-              const resolvedPath = path.normalize(path.join(workspaceRoot, change.file));
+              const resolvedPath = path.normalize(path.join(workspaceRoot, filePath));
               if (!resolvedPath.startsWith(workspaceRoot)) {
                 vscode.window.showErrorMessage(`Path traversal detected: ${change.file}. Skipping.`);
                 continue;
@@ -803,6 +807,42 @@ const chatHandler = {
     return {};
   }
 };
+
+// Assuming you have a WebviewPanel instance named 'panel' and a stream handler
+// Replace or integrate this into your existing stream processing function
+
+async function handleGrokResponse(query: string, panel: vscode.WebviewPanel) {
+    // Show thinking indicator initially
+    panel.webview.html = `<div>Grok is thinking...</div>`;
+
+    let bufferedResponse = ''; // Buffer for the full response
+
+    // Simulate or use your actual streaming API call (e.g., via fetch or SDK)
+    // This example assumes a streaming response from an API endpoint
+    const response = await fetch('your-grok-api-endpoint', {
+        method: 'POST',
+        body: JSON.stringify({ query }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        bufferedResponse += chunk; // Buffer the chunk (assuming chunks are HTML/markdown fragments)
+    }
+
+    // Once streaming is complete, render the buffered content as markdown
+    // Use vscode.markdownIt or similar to render if needed; here assuming raw HTML from API
+    const renderedMarkdown = bufferedResponse; // Or process with a markdown renderer if raw markdown
+    panel.webview.html = `<div>${renderedMarkdown}</div>`;
+}
 
 // Extension Lifecycle
 export async function activate(context: vscode.ExtensionContext) {

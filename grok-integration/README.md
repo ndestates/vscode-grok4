@@ -2,6 +2,10 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
+## 🚀 New in v1.6.6
+
+-   **🐞 Minor Bug Fixes**: Various small bug fixes and stability improvements.
+
 ## 🚀 New in v1.6.2
 
 -   **🔧 Bug Fixes**: Improved extension stability and performance

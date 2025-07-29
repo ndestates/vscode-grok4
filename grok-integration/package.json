@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.6.3",
+  "version": "1.6.6",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
@@ -16,6 +16,7 @@
   },
   "categories": [
     "AI",
+    "Chat",
     "Machine Learning",
     "Programming Languages",
     "Other"
