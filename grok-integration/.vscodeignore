@@ -63,3 +63,11 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Exclusions
+**/*.map       # Exclude source maps
+node_modules    # Ensure node_modules is ignored
+src             # Exclude src if bundling to dist
+test            # Exclude tests
+*.ts            # Exclude TypeScript sources
+.vscode         # Exclude VS Code settings
