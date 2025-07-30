@@ -6,6 +6,7 @@ import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
 import { marked } from 'marked';
 import * as os from 'os';
+import LRUCache from 'lru-cache';
 
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -14,6 +15,9 @@ const purify = createDOMPurify(window as any);
 // Rate limiting constants
 const RATE_LIMIT_KEY = 'grokRateLimit';
 const MAX_REQUESTS_PER_MINUTE = 20;
+
+// Create an LRU cache instance with a maximum of 100 items
+const cache = new LRUCache<string, any>({ max: 100 });
 
 // Utility Functions
 function redactSecrets(text: string): string {
@@ -305,19 +309,20 @@ async function getWorkspaceContext(): Promise<string> {
   return `Workspace: ${workspaceName}\nActive File: ${activeFile}`;
 }
 
-// Replace all usage of tokenizeText and tiktoken-based logic with a simple heuristic
+// Updated estimateTokens function with configurable multiplier
 async function estimateTokens(text: string, files: string[] = []): Promise<number> {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const multiplier = config.get<number>('tokenMultiplier') || 1.1;  // Allow configuration via settings
   try {
-    let total = text.split(/\s+/).length + 1;
+    let total = Math.ceil((text.split(/\s+/).length + 1) * multiplier);
     for (const file of files) {
       const content = await fs.promises.readFile(file, 'utf-8');
-      total += content.split(/\s+/).length + 1;
+      total += Math.ceil((content.split(/\s+/).length + 1) * multiplier);
     }
     return total;
   } catch {
-    // Fallback heuristic
     const cleaned = text.trim().replace(/\s+/g, ' ');
-    return Math.ceil((cleaned.length / 4) * 1.1);
+    return Math.ceil((cleaned.length / 4) * multiplier);
   }
 }
 
@@ -469,6 +474,7 @@ function parseGrokCodeChanges(markdown: string): Array<{file: string, code: stri
   return changes;
 }
 
+// Updated processGrokRequest to limit buffering
 async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string, token: vscode.CancellationToken): Promise<string | undefined> {
   try {
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
@@ -493,15 +499,12 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
       temperature: 0.5,
       stream: true,
     });
-    let fullResponse = '';
+    let fullResponse = '';  // Keep for now, but limit size
     for await (const chunk of stream) {
-      if (token.isCancellationRequested) {
-        return;
-      }
+      if (token.isCancellationRequested) return;
       const content = chunk.choices[0]?.delta?.content || '';
-      if (content) {
+      if (content && fullResponse.length < 10000) {  // Arbitrary limit to prevent excessive growth
         fullResponse += content;
-        // For incremental updates, sanitize as simple HTML
         panel.webview.postMessage({ type: 'update', content: purify.sanitize(content.replace(/\n/g, '<br>')) });
       }
     }
@@ -920,6 +923,17 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(...commands);
 
     vscode.window.showInformationMessage('🤖 Grok Integration activated! Try @grok in chat or right-click selected code.');
+
+    // Example: Add a new command for AI query integration
+    const grokCommand = vscode.commands.registerCommand('extension.grokQuery', async () => {
+        const input = await vscode.window.showInputBox({ prompt: 'Ask a question' });
+        if (input) {
+            // Replace with actual API call, e.g., fetch from an AI endpoint
+            vscode.window.showInformationMessage(`Processing query: ${input}`);
+        }
+    });
+
+    context.subscriptions.push(grokCommand);
   } catch (error) {
     console.error('❌ Extension activation failed:', error);
     vscode.window.showErrorMessage(`Failed to activate Grok Integration: ${error instanceof Error ? error.message : String(error)}`);
@@ -930,5 +944,31 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   console.log('🛑 Grok Integration extension deactivating...');
   // Deactivation relies on context.subscriptions disposing automatically
+}
+
+// Assuming you have a function that prepares the request body
+async function sendRequest() {
+    try {
+        const messages = [
+            { content: "Valid string here" }, // Example for messages[0]
+            { content: "Check this for incomplete escapes, e.g., fix \\u123 to \\u1234" } // messages[1].content
+            // Add other elements as needed
+        ];
+
+        // Validate the JSON structure
+        const requestBody = JSON.stringify(messages);
+        JSON.parse(requestBody);  // This will throw an error if JSON is invalid
+
+        // Proceed with the request (e.g., using fetch or axios)
+        const response = await fetch('/your-endpoint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody
+        });
+        // Handle response...
+    } catch (error) {
+        vscode.window.showErrorMessage(`JSON Error: ${error.message}`);
+        // Log or debug the error for further inspection
+    }
 }
 
