@@ -206,6 +206,7 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/lru-cache": "^7.10.9",
     "@types/mocha": "^10.0.1",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.102.0",
