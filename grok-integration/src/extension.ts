@@ -58,6 +58,29 @@ function redactSecrets(text: string): string {
     .replace(/(-----BEGIN [A-Z ]+PRIVATE KEY-----)([\s\S]*?)(-----END [A-Z ]+PRIVATE KEY-----)/gi, '$1\nREDACTED\n$3');
 }
 
+// Add this missing sanitizeForJson function
+function sanitizeForJson(text: string): string {
+  return text
+    // Fix incomplete Unicode escapes by removing them
+    .replace(/\\u[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])/g, '')
+    // Remove other potentially problematic escape sequences
+    .replace(/\\x[0-9A-Fa-f]{1}(?![0-9A-Fa-f])/g, '')
+    // Handle control characters that might break JSON
+    .replace(/[\x00-\x1F\x7F]/g, (char) => {
+      switch (char) {
+        case '\n': return '\\n';
+        case '\r': return '\\r';
+        case '\t': return '\\t';
+        case '\b': return '\\b';
+        case '\f': return '\\f';
+        default: return ''; // Remove other control characters
+      }
+    })
+    // Escape backslashes and quotes for JSON safety
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+}
+
 function convertMarkdownToHtml(markdown: string): string {
   const html = marked.parse(markdown, { breaks: true });
   return purify.sanitize(typeof html === 'string' ? html : '');
