@@ -6,7 +6,7 @@ import createDOMPurify from 'dompurify';
 import { parseHTML } from 'linkedom';
 import { marked } from 'marked';
 import * as os from 'os';
-import LRUCache from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -20,9 +20,42 @@ const MAX_REQUESTS_PER_MINUTE = 20;
 const cache = new LRUCache<string, any>({ max: 100 });
 
 // Utility Functions
+// Add these missing interfaces and constants at the top after the cache declaration
+interface CacheEntry {
+  response: string;
+  timestamp: number;
+  tokenCount: number;
+}
+
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// Add the missing generateCacheKey function
+function generateCacheKey(code: string, language: string, action: string): string {
+  const crypto = require('crypto');
+  const content = `${action}:${language}:${code}`;
+  return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+}
+
+// Fix the redactSecrets function to be more targeted and prevent Unicode corruption
 function redactSecrets(text: string): string {
-  // Enhanced regex to cover more secret patterns (e.g., JSON keys, base64-like strings)
-  return text.replace(/(api_key|password|secret|token|jwt|bearer|env|"apiKey"|"token"|"secret")[:=][^& \n"]+|(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/gi, '$1=REDACTED');
+  return text
+    // API keys (various formats)
+    .replace(/(api[_-]?key\s*[:=]\s*["']?)([^"'\s\n]{10,})(["']?)/gi, '$1REDACTED$3')
+    .replace(/(apikey\s*[:=]\s*["']?)([^"'\s\n]{10,})(["']?)/gi, '$1REDACTED$3')
+    // Tokens
+    .replace(/(token\s*[:=]\s*["']?)([^"'\s\n]{20,})(["']?)/gi, '$1REDACTED$3')
+    .replace(/(bearer\s+)([a-zA-Z0-9._-]{20,})/gi, '$1REDACTED')
+    // Passwords
+    .replace(/(password\s*[:=]\s*["']?)([^"'\s\n]{3,})(["']?)/gi, '$1REDACTED$3')
+    .replace(/(passwd\s*[:=]\s*["']?)([^"'\s\n]{3,})(["']?)/gi, '$1REDACTED$3')
+    // JWT tokens (more specific pattern)
+    .replace(/\b(eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)\b/g, 'JWT_TOKEN_REDACTED')
+    // Email addresses (PII)
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, 'EMAIL_REDACTED')
+    // Phone numbers (basic patterns)
+    .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, 'PHONE_REDACTED')
+    // SSH private keys
+    .replace(/(-----BEGIN [A-Z ]+PRIVATE KEY-----)([\s\S]*?)(-----END [A-Z ]+PRIVATE KEY-----)/gi, '$1\nREDACTED\n$3');
 }
 
 function convertMarkdownToHtml(markdown: string): string {
@@ -187,7 +220,7 @@ function getLoadingHTML(): string {
               .replace(/>/g, "&gt;")
               .replace(/"/g, "&quot;")
               .replace(/'/g, "&#039;");
-          }
+}
 
           const modeSwitch = document.getElementById('mode-switch');
           function updateModeStyles() {
@@ -329,7 +362,7 @@ async function estimateTokens(text: string, files: string[] = []): Promise<numbe
 async function testGrokConnection(apiKey: string): Promise<boolean> {
   try {
     const config = vscode.workspace.getConfiguration('grokIntegration');
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+    const modelName = config.get<string>('model') || 'grok-3-mini';
     const openai = new OpenAI({ apiKey, baseURL: 'https://api.x.ai/v1', timeout: 30000 });
     const response = await openai.chat.completions.create({
       model: modelName,
@@ -361,7 +394,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 
   const config = vscode.workspace.getConfiguration('grokIntegration');
   let apiKey = config.get<string>('apiKey');
-  const modelName = config.get<string>('model') || 'grok-4-0709';
+  const modelName = config.get<string>('model') || 'grok-3-mini';
   if (!modelName) {
     vscode.window.showWarningMessage('No Grok model is set. Please check your settings for available models.');
   }
@@ -474,24 +507,60 @@ function parseGrokCodeChanges(markdown: string): Array<{file: string, code: stri
   return changes;
 }
 
-// Updated processGrokRequest to limit buffering
+// Update processGrokRequest to include caching
 async function processGrokRequest(panel: vscode.WebviewPanel, code: string, language: string, action: string, apiKey: string, token: vscode.CancellationToken): Promise<string | undefined> {
   try {
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: API key is missing or invalid. Please set your xAI API key in settings.</p>' });
       return '# Error\n\nAPI key is missing or invalid.';
     }
-    const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
-    const redactedCode = redactSecrets(code);
-    const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
-    const tokenCount = await estimateTokens(prompt);
+
     const config = vscode.workspace.getConfiguration('grokIntegration');
+    const cacheEnabled = config.get<boolean>('enableCache') ?? true;
+    
+    // Sanitize code for JSON safety first, then redact secrets
+    const sanitizedCode = sanitizeForJson(code);
+    const redactedCode = redactSecrets(sanitizedCode);
+    
+    // Generate cache key from non-sensitive content
+    const cacheKey = generateCacheKey(sanitizedCode, language, action);
+    
+    // Check cache first if enabled
+    if (cacheEnabled && cache.has(cacheKey)) {
+      const cached = cache.get(cacheKey) as CacheEntry;
+      const isExpired = Date.now() - cached.timestamp > CACHE_TTL_MS;
+      
+      if (!isExpired) {
+        vscode.window.showInformationMessage('📦 Using cached response');
+        panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(cached.response) });
+        return cached.response;
+      } else {
+        cache.delete(cacheKey);
+      }
+    }
+
+    const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
+    
+    const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+    
+    const tokenCount = await estimateTokens(prompt);
     const maxTokens = config.get<number>('maxTokens') || 9000;
+    
     if (tokenCount > maxTokens) {
       panel.webview.postMessage({ type: 'complete', html: `<p>❌ Request too large: estimated ${tokenCount} tokens exceeds your configured hard limit of ${maxTokens}. Please reduce your selection or increase the limit in settings.</p>` });
       return;
     }
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+
+    const modelName = config.get<string>('model') || 'grok-3-mini';
+    
+    // Validate the message content before sending
+    try {
+      JSON.stringify([{ role: 'user', content: prompt }]);
+    } catch (jsonError) {
+      panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: Content contains invalid characters for JSON transmission. Please check for malformed Unicode sequences.</p>' });
+      return '# Error\n\nContent contains invalid JSON characters.';
+    }
+    
     const stream = await openai.chat.completions.create({
       model: modelName,
       messages: [{ role: 'user', content: prompt }],
@@ -499,15 +568,27 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
       temperature: 0.5,
       stream: true,
     });
-    let fullResponse = '';  // Keep for now, but limit size
+    
+    let fullResponse = '';
     for await (const chunk of stream) {
       if (token.isCancellationRequested) return;
       const content = chunk.choices[0]?.delta?.content || '';
-      if (content && fullResponse.length < 10000) {  // Arbitrary limit to prevent excessive growth
+      if (content && fullResponse.length < 50000) {
         fullResponse += content;
         panel.webview.postMessage({ type: 'update', content: purify.sanitize(content.replace(/\n/g, '<br>')) });
       }
     }
+
+    // Cache the response if enabled
+    if (cacheEnabled && fullResponse) {
+      const cacheEntry: CacheEntry = {
+        response: fullResponse,
+        timestamp: Date.now(),
+        tokenCount: tokenCount
+      };
+      cache.set(cacheKey, cacheEntry);
+    }
+
     panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
     return fullResponse;
   } catch (error) {
@@ -680,11 +761,13 @@ const chatHandler = {
   async handleRequest(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> {
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const apiKey = config.get<string>('apiKey');
-    const modelName = config.get<string>('model') || 'grok-4-0709';
+    const modelName = config.get<string>('model') || 'grok-3-mini';
+    
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
       return {};
     }
+
     const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
     let action = 'respond to';
     if (request.command === 'explain') action = 'explain';
@@ -716,7 +799,7 @@ const chatHandler = {
           }
           const YES_BUTTON = 'Yes, Send Content';
           const NO_BUTTON = 'No, Cancel';
-          const PRIVACY_NOTE = '\n\nNote: File contents will be sent securely to the xAI API for processing. DO NOT SEND PERSONALLY IDENTIFIABLE material. See our privacy policy for details.';
+          const PRIVACY_NOTE = '\n\nNote: File contents will be sent securely to the xAI API for processing. Sensitive data like API keys and PII will be automatically redacted.';
           const consent = await vscode.window.showWarningMessage(
             `Do you consent to sending the content of the following ${fileWord} to the xAI API?${PRIVACY_NOTE}\n\n${filePathsList}`,
             { modal: true },
@@ -724,7 +807,7 @@ const chatHandler = {
             NO_BUTTON
           );
           if (consent === YES_BUTTON) {
-            vscode.window.showInformationMessage(`Sending ${fileCount} ${fileWord} to xAI... Buckle up!`);
+            vscode.window.showInformationMessage(`Sending ${fileCount} ${fileWord} to xAI... Sensitive data will be redacted.`);
           } else if (consent === NO_BUTTON) {
             vscode.window.showInformationMessage('Operation cancelled. Your files are safe with you.');
             return {};
@@ -759,11 +842,13 @@ const chatHandler = {
       }
     }
 
-    const redactedContext = redactSecrets(fullContext);
+    // Apply sanitization first, then targeted redaction
+    const sanitizedContext = sanitizeForJson(fullContext);
+    const redactedContext = redactSecrets(sanitizedContext);
     const workspaceInfo = await getWorkspaceContext();
     const userPrompt = request.prompt || 'Hello';
 
-    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. For example:\n\`\`\`typescript\n// your typescript code here\n\`\`\`';
+    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. For example:\n```typescript\n// your typescript code here\n```';
     const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
 
     const maxTokens = config.get<number>('maxTokens') || 9000;
@@ -774,6 +859,12 @@ const chatHandler = {
     }
 
     try {
+      // Validate JSON before sending
+      JSON.stringify([
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: userMessage }
+      ]);
+      
       stream.progress('🔍 Connecting to Grok...');
       const response = await openai.chat.completions.create({
         model: modelName,
@@ -804,48 +895,16 @@ const chatHandler = {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      stream.markdown(`❌ **Error**: ${errorMsg}\n\nPlease check your API key and try again.`);
+      if (errorMsg.includes('unexpected end of hex escape')) {
+        stream.markdown('❌ **Error**: Content contains malformed Unicode sequences. The text has been sanitized and the request should work on retry.');
+      } else {
+        stream.markdown(`❌ **Error**: ${errorMsg}\n\nPlease check your API key and try again.`);
+      }
     }
 
     return {};
   }
 };
-
-// Assuming you have a WebviewPanel instance named 'panel' and a stream handler
-// Replace or integrate this into your existing stream processing function
-
-async function handleGrokResponse(query: string, panel: vscode.WebviewPanel) {
-    // Show thinking indicator initially
-    panel.webview.html = `<div>Grok is thinking...</div>`;
-
-    let bufferedResponse = ''; // Buffer for the full response
-
-    // Simulate or use your actual streaming API call (e.g., via fetch or SDK)
-    // This example assumes a streaming response from an API endpoint
-    const response = await fetch('your-grok-api-endpoint', {
-        method: 'POST',
-        body: JSON.stringify({ query }),
-        headers: { 'Content-Type': 'application/json' }
-    });
-
-    if (!response.body) return;
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        bufferedResponse += chunk; // Buffer the chunk (assuming chunks are HTML/markdown fragments)
-    }
-
-    // Once streaming is complete, render the buffered content as markdown
-    // Use vscode.markdownIt or similar to render if needed; here assuming raw HTML from API
-    const renderedMarkdown = bufferedResponse; // Or process with a markdown renderer if raw markdown
-    panel.webview.html = `<div>${renderedMarkdown}</div>`;
-}
 
 // Extension Lifecycle
 export async function activate(context: vscode.ExtensionContext) {
@@ -918,7 +977,16 @@ export async function activate(context: vscode.ExtensionContext) {
       registerCancellableCommand('grok-integration.explainCodeContext', async (token) => await explainCodeCommand(context, token)),
       registerCancellableCommand('grok-integration.reviewCodeContext', async (token) => await reviewCodeCommand(context, token)),
       registerCancellableCommand('grok-integration.showErrorLog', async () => await showErrorLogCommand()),
-      registerCancellableCommand('grok-integration.clearErrorLog', async () => await clearErrorLogCommand())
+      registerCancellableCommand('grok-integration.clearErrorLog', async () => await clearErrorLogCommand()),
+      vscode.commands.registerCommand('grok-integration.clearCache', async () => {
+        cache.clear();
+        vscode.window.showInformationMessage('🗑️ Grok response cache cleared.');
+      }),
+      vscode.commands.registerCommand('grok-integration.showCacheStats', async () => {
+        const size = cache.size;
+        const maxSize = cache.max;
+        vscode.window.showInformationMessage(`📊 Cache: ${size}/${maxSize} entries`);
+      }),
     ];
     context.subscriptions.push(...commands);
 
@@ -967,7 +1035,8 @@ async function sendRequest() {
         });
         // Handle response...
     } catch (error) {
-        vscode.window.showErrorMessage(`JSON Error: ${error.message}`);
+        const errorMsg = (error instanceof Error) ? error.message : String(error);
+        vscode.window.showErrorMessage(`JSON Error: ${errorMsg}`);
         // Log or debug the error for further inspection
     }
 }

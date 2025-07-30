@@ -34,7 +34,7 @@ A VS Code extension that integrates Grok AI into your development workflow.
 
 ## Development Setup
 
-ddev exec npm install -g vsce
+ddev exec npm install -g @vscode/vsce
 ddev exec "cd grok-integration && vsce package"
 
 
