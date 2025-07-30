@@ -1,7 +1,19 @@
 # Grok AI Integration for VS Code
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
+## 🚀 Update in v1.6.7
 
+-   **🔧 Bug Fixes**: Improved stability and performanc
+
+-   **📦 Package Optimization**: Reduced bundle size for faster installation
+
+    ** DEFAULT MODEL CHANGE **:
+    -   The default model has been changed to `grok-3-mini` for enhanced performance and compatibility.
+      - This model is more efficient and provides better responses for most use cases.
+
+-   **🔄 Dependency Updates**: Updated core dependencies for better compatibility.
+
+The default model has been changed to grok-3-mini for enhanced performance and compatibility.
 ## 🚀 New in v1.6.6
 
 -   **🐞 Minor Bug Fixes**: Various small bug fixes and stability improvements.
