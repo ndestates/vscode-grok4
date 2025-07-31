@@ -473,42 +473,57 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
       } else if (message.command === 'modeSwitch') {
         currentMode = message.mode;
       } else if (message.command === 'applyChanges') {
-        if (currentMode === 'agent' && rawMarkdownResponse) {
+        if (rawMarkdownResponse) {
           const changes = parseGrokCodeChanges(rawMarkdownResponse);
           if (changes.length === 0) {
             vscode.window.showErrorMessage('No code changes found in response.');
             return;
           }
-          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-          for (const change of changes) {
-            try {
-              let filePath = change.file;
-              if (filePath.startsWith('/')) {
-                filePath = filePath.slice(1);
+          const applyChanges = async () => {
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+            for (const change of changes) {
+              try {
+                let filePath = change.file;
+                if (filePath.startsWith('/')) {
+                  filePath = filePath.slice(1);
+                }
+                // Security: Validate path - must be relative, no '..', and within workspace
+                if (path.isAbsolute(filePath) || filePath.includes('..')) {
+                  vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace without '..'.`);
+                  continue;
+                }
+                const resolvedPath = path.normalize(path.join(workspaceRoot, filePath));
+                if (!resolvedPath.startsWith(workspaceRoot)) {
+                  vscode.window.showErrorMessage(`Path traversal detected: ${change.file}. Skipping.`);
+                  continue;
+                }
+                const fileUri = vscode.Uri.file(resolvedPath);
+                const doc = await vscode.workspace.openTextDocument(fileUri);
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(fileUri, new vscode.Range(0, 0, doc.lineCount, 0), change.code);
+                await vscode.workspace.applyEdit(edit);
+                await doc.save();
+                vscode.window.showInformationMessage(`Applied Grok changes to ${change.file}`);
+              } catch (err) {
+                vscode.window.showErrorMessage(`Failed to apply changes to ${change.file}: ${err instanceof Error ? err.message : String(err)}`);
               }
-              // Security: Validate path - must be relative, no '..', and within workspace
-              if (path.isAbsolute(filePath) || filePath.includes('..')) {
-                vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace without '..'.`);
-                continue;
-              }
-              const resolvedPath = path.normalize(path.join(workspaceRoot, filePath));
-              if (!resolvedPath.startsWith(workspaceRoot)) {
-                vscode.window.showErrorMessage(`Path traversal detected: ${change.file}. Skipping.`);
-                continue;
-              }
-              const fileUri = vscode.Uri.file(resolvedPath);
-              const doc = await vscode.workspace.openTextDocument(fileUri);
-              const edit = new vscode.WorkspaceEdit();
-              edit.replace(fileUri, new vscode.Range(0, 0, doc.lineCount, 0), change.code);
-              await vscode.workspace.applyEdit(edit);
-              await doc.save();
-              vscode.window.showInformationMessage(`Applied Grok changes to ${change.file}`);
-            } catch (err) {
-              vscode.window.showErrorMessage(`Failed to apply changes to ${change.file}: ${err instanceof Error ? err.message : String(err)}`);
             }
+          };
+
+          if (currentMode === 'agent') {
+            await applyChanges();
+          } else if (currentMode === 'ask') {
+            const confirmation = await vscode.window.showQuickPick(['Yes', 'No'], {
+              placeHolder: 'Apply suggested code changes?'
+            });
+            if (confirmation === 'Yes') {
+              await applyChanges();
+            }
+          } else {
+            vscode.window.showErrorMessage('Invalid mode for applying changes.');
           }
         } else {
-          vscode.window.showErrorMessage('Agent mode must be active and response must contain code changes.');
+          vscode.window.showErrorMessage('No response content available.');
         }
       }
     },
@@ -1031,12 +1046,6 @@ export async function activate(context: vscode.ExtensionContext) {
     logExtensionError(error, 'Extension Activation');
   }
 }
-
-export function deactivate() {
-  console.log('🛑 Grok Integration extension deactivating...');
-  // Deactivation relies on context.subscriptions disposing automatically
-}
-
 // Assuming you have a function that prepares the request body
 async function sendRequest() {
     try {
@@ -1062,5 +1071,52 @@ async function sendRequest() {
         vscode.window.showErrorMessage(`JSON Error: ${errorMsg}`);
         // Log or debug the error for further inspection
     }
+}
+
+// New function to add file contents
+export async function addFileContents(uri: vscode.Uri) {
+  if (!uri) {
+    // If no URI provided, assume it's called without context; show error or handle accordingly
+    vscode.window.showErrorMessage('No file selected.');
+    return;
+  }
+
+  try {
+    const content = await vscode.workspace.fs.readFile(uri);
+    const text = new TextDecoder().decode(content);
+    
+    // Logic to add file contents (replace with your specific use case, e.g., append to a chat context or global state)
+    // Example: Append to a global context or display in output
+    const outputChannel = vscode.window.createOutputChannel('Grok File Contents');
+    outputChannel.appendLine(`File: ${uri.fsPath}`);
+    outputChannel.appendLine(text);
+    outputChannel.show();
+
+    vscode.window.showInformationMessage(`Added contents of ${uri.fsPath}`);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error reading file: ${error.message}`);
+  }
+}
+
+// In your activate function, register the command for addFileContents
+vscode.commands.registerCommand('grok-integration.addFileContents', async (uri) => {
+  await addFileContents(uri);
+});
+
+export function deactivate() {
+    // Dispose of all subscriptions in the extension context
+    if (context && context.subscriptions) {
+        context.subscriptions.forEach(disposable => disposable.dispose());
+    }
+
+    // Clear any global caches or memory-intensive objects
+    // Replace 'globalCache' with your actual cache variable(s)
+    if (globalCache) {
+        globalCache.clear();
+        globalCache = null;
+    }
+
+    // Add any other cleanup logic, e.g., closing connections or stopping services
+    // Example: if (someService) someService.stop();
 }
 
