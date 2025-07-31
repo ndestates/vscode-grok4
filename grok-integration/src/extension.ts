@@ -1040,6 +1040,31 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(grokCommand);
+
+    // Register a command for the cancel button
+    const cancelCommand = vscode.commands.registerCommand('grok-integration.cancelOperation', () => {
+        // Logic to cancel the ongoing operation
+        // Example: if (ongoingProcess) ongoingProcess.cancel();
+
+        // Dispose of memory and clear cache
+        // Replace with your actual resources
+        if (operationCache) {
+            operationCache.clear();
+            operationCache = null;
+        }
+
+        // Optional: Show a notification
+        vscode.window.showInformationMessage('Operation cancelled and resources disposed.');
+    });
+
+    context.subscriptions.push(cancelCommand);
+
+    // To add a cancel button, e.g., in the status bar
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = 'grok-integration.cancelOperation';
+    statusBarItem.text = '$(close) Cancel';
+    statusBarItem.tooltip = 'Cancel and dispose resources';
+    statusBarItem.show(); // Show conditionally based on operation
   } catch (error) {
     console.error('❌ Extension activation failed:', error);
     vscode.window.showErrorMessage(`Failed to activate Grok Integration: ${error instanceof Error ? error.message : String(error)}`);
@@ -1104,19 +1129,6 @@ vscode.commands.registerCommand('grok-integration.addFileContents', async (uri) 
 });
 
 export function deactivate() {
-    // Dispose of all subscriptions in the extension context
-    if (context && context.subscriptions) {
-        context.subscriptions.forEach(disposable => disposable.dispose());
-    }
-
-    // Clear any global caches or memory-intensive objects
-    // Replace 'globalCache' with your actual cache variable(s)
-    if (globalCache) {
-        globalCache.clear();
-        globalCache = null;
-    }
-
-    // Add any other cleanup logic, e.g., closing connections or stopping services
-    // Example: if (someService) someService.stop();
+    // No explicit cleanup required; VSCode disposes subscriptions automatically.
 }
 
