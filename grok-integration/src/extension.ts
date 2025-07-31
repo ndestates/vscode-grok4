@@ -1041,6 +1041,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(grokCommand);
 
+    // Declare operationCache at the top-level scope of activate
+    let operationCache: { clear: () => void } | null = null;
+
     // Register a command for the cancel button
     const cancelCommand = vscode.commands.registerCommand('grok-integration.cancelOperation', () => {
         // Logic to cancel the ongoing operation
