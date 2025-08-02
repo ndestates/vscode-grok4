@@ -71,3 +71,6 @@ temp_compare/
 # Workspace specific files
 
 *.code-workspace
+
+temp_compare
+compare/*

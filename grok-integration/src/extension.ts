@@ -8,6 +8,11 @@ import { marked } from 'marked';
 import * as os from 'os';
 import { LRUCache } from 'lru-cache';
 
+import { VALID_EXTENSIONS } from "./utils/valid-extensions";
+import { EXCLUDE_LIST } from "./utils/exclude-list";
+import { getGitLsFilesOutputAsArray } from "./utils/git";
+
+
 // Lightweight DOM setup for DOMPurify
 const { window } = parseHTML('<!DOCTYPE html><html><head></head><body></body></html>');
 const purify = createDOMPurify(window as any);
