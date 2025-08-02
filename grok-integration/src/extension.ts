@@ -8,9 +8,10 @@ import { marked } from 'marked';
 import * as os from 'os';
 import { LRUCache } from 'lru-cache';
 
-import { VALID_EXTENSIONS } from "./utils/valid-extensions";
+// If the file exists, ensure it exports VALID_EXTENSIONS. Otherwise, create it as below:
 import { EXCLUDE_LIST } from "./utils/exclude-list";
 import { getGitLsFilesOutputAsArray } from "./utils/git";
+import { VALID_EXTENSIONS } from "./utils/valid-extensions";
 
 
 // Lightweight DOM setup for DOMPurify
@@ -915,7 +916,7 @@ const chatHandler = {
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
         ],
-        max_tokens: maxTokens,
+        max_tokens,
         temperature: 0.2,
         stream: true,
       });
@@ -990,7 +991,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`Error in ${commandId}: ${err instanceof Error ? err.message : String(err)}`);
           }
         });
-      });
+      };
     };
 
     const commands = [
@@ -1030,6 +1031,9 @@ export async function activate(context: vscode.ExtensionContext) {
         const maxSize = cache.max;
         vscode.window.showInformationMessage(`📊 Cache: ${size}/${maxSize} entries`);
       }),
+      registerCancellableCommand('grok-integration.selectWorkspaceFiles', async (token) => await selectWorkspaceFilesCommand(context, token)),
+      registerCancellableCommand('grok-integration.exportAllWorkspaceFiles', async (token) => await exportAllWorkspaceFilesCommand(context, token)),
+      registerCancellableCommand('grok-integration.askGrokWorkspace', async (token) => await askGrokWorkspaceCommand(context, token)),
     ];
     context.subscriptions.push(...commands);
 
@@ -1136,7 +1140,215 @@ vscode.commands.registerCommand('grok-integration.addFileContents', async (uri) 
   await addFileContents(uri);
 });
 
+// Add these utility functions after your existing utility functions
+export function isValidExtension(filePath: string): boolean {
+  const filename = path.basename(filePath);
+  if (!filename) {
+    return false;
+  }
+
+  // Special cases: no extension or dot files
+  if (!filename.includes(".")) {
+    return true; // e.g., "README"
+  }
+  if (filename.startsWith(".")) {
+    return true; // e.g., ".gitignore"
+  }
+
+  // Extract extension
+  const extension = path.extname(filename).toLowerCase();
+  if (!extension) {
+    return false;
+  }
+
+  return VALID_EXTENSIONS.has(extension);
+}
+
+function notOnExcludeList(filePath: string): boolean {
+  const filename = path.basename(filePath);
+  if (!filename) {
+    return false;
+  }
+  return !EXCLUDE_LIST.has(filename);
+}
+
+export async function readFileAsUtf8(uri: vscode.Uri) {
+  const fileContent = await vscode.workspace.fs.readFile(uri);
+  return new TextDecoder("utf-8").decode(fileContent);
+}
+
+export async function getFilesList(): Promise<string[]> {
+  const gitFiles = await getGitLsFilesOutputAsArray();
+  return gitFiles.filter(isValidExtension).filter(notOnExcludeList);
+}
+
+export async function getWorkspaceFilesContents(): Promise<{ path: string; content: string }[]> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    throw new Error("No workspace folder open");
+  }
+  
+  const workspaceRoot = workspaceFolders[0].uri.fsPath;
+  const files = await getFilesList();
+  const results: { path: string; content: string }[] = [];
+
+  for (const relativePath of files) {
+    const fullPath = path.join(workspaceRoot, relativePath);
+    const uri = vscode.Uri.file(fullPath);
+    try {
+      const content = await readFileAsUtf8(uri);
+      results.push({ path: relativePath, content });
+    } catch (error) {
+      console.error(`Failed to read file ${relativePath}: ${error}`);
+    }
+  }
+
+  return results;
+}
+
+// Add new command handlers
+async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
+  try {
+    const files = await getFilesList();
+    
+    if (files.length === 0) {
+      vscode.window.showInformationMessage('No valid files found in workspace.');
+      return;
+    }
+
+    // Show quick pick to select multiple files
+    const selectedFiles = await vscode.window.showQuickPick(
+      files.map(file => ({ 
+        label: file, 
+        picked: false,
+        description: path.extname(file) || 'No extension'
+      })),
+      {
+        canPickMany: true,
+        placeHolder: 'Select files to export to Grok (use Ctrl/Cmd+click for multiple)',
+        title: 'Workspace File Export'
+      }
+    );
+
+    if (!selectedFiles || selectedFiles.length === 0) {
+      vscode.window.showInformationMessage('No files selected.');
+      return;
+    }
+
+    // Prepare context with selected files
+    let combinedContent = '';
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceRoot = workspaceFolders?.[0]?.uri.fsPath || '';
+
+    for (const file of selectedFiles) {
+      const fullPath = path.join(workspaceRoot, file.label);
+      const uri = vscode.Uri.file(fullPath);
+      try {
+        const content = await readFileAsUtf8(uri);
+        combinedContent += `\n\n--- FILE: ${file.label} ---\n${content}\n--- END FILE ---`;
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to read ${file.label}: ${error}`);
+      }
+    }
+
+    if (combinedContent) {
+      await showGrokPanel(
+        context, 
+        `Workspace Export (${selectedFiles.length} files)`, 
+        combinedContent, 
+        'multiple', 
+        'review and analyze', 
+        token
+      );
+    }
+
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error selecting workspace files: ${error instanceof Error ? error.message : String(error)}`);
+    logExtensionError(error, 'selectWorkspaceFilesCommand');
+  }
+}
+
+async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
+  try {
+    const filesWithContent = await getWorkspaceFilesContents();
+    
+    if (filesWithContent.length === 0) {
+      vscode.window.showInformationMessage('No valid files found in workspace.');
+      return;
+    }
+
+    // Check if too many files
+    if (filesWithContent.length > 50) {
+      const proceed = await vscode.window.showWarningMessage(
+        `Found ${filesWithContent.length} files. This might be too large for Grok. Continue?`,
+        'Yes', 'No'
+      );
+      if (proceed !== 'Yes') {
+        return;
+      }
+    }
+
+    // Combine all file contents
+    let combinedContent = '';
+    for (const file of filesWithContent) {
+      combinedContent += `\n\n--- FILE: ${file.path} ---\n${file.content}\n--- END FILE ---`;
+    }
+
+    await showGrokPanel(
+      context, 
+      `Full Workspace Export (${filesWithContent.length} files)`, 
+      combinedContent, 
+      'multiple', 
+      'review and analyze the entire workspace', 
+      token
+    );
+
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error exporting workspace: ${error instanceof Error ? error.message : String(error)}`);
+    logExtensionError(error, 'exportAllWorkspaceFilesCommand');
+  }
+}
+
+async function askGrokWorkspaceCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
+  try {
+    // Get user's custom prompt
+    const userPrompt = await vscode.window.showInputBox({
+      prompt: 'What would you like to ask Grok about your workspace?',
+      placeHolder: 'e.g., "Explain the architecture" or "Find potential bugs"'
+    });
+
+    if (!userPrompt) {
+      return;
+    }
+
+    const filesWithContent = await getWorkspaceFilesContents();
+    
+    if (filesWithContent.length === 0) {
+      vscode.window.showInformationMessage('No valid files found in workspace.');
+      return;
+    }
+
+    // Combine all file contents
+    let combinedContent = `User Question: ${userPrompt}\n\nWorkspace Files:`;
+    for (const file of filesWithContent) {
+      combinedContent += `\n\n--- FILE: ${file.path} ---\n${file.content}\n--- END FILE ---`;
+    }
+
+    await showGrokPanel(
+      context, 
+      `Workspace Query: ${userPrompt}`, 
+      combinedContent, 
+      'multiple', 
+      `answer the user's question: "${userPrompt}" based on`, 
+      token
+    );
+
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error querying workspace: ${error instanceof Error ? error.message : String(error)}`);
+    logExtensionError(error, 'askGrokWorkspaceCommand');
+  }
+}
+
 export function deactivate() {
     // No explicit cleanup required; VSCode disposes subscriptions automatically.
 }
-
