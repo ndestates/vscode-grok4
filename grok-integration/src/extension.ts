@@ -22,10 +22,6 @@ const purify = createDOMPurify(window as any);
 const RATE_LIMIT_KEY = 'grokRateLimit';
 const MAX_REQUESTS_PER_MINUTE = 20;
 
-// Create an LRU cache instance with a maximum of 100 items
-const cache = new LRUCache<string, any>({ max: 100 });
-
-// Utility Functions
 // Add these missing interfaces and constants at the top after the cache declaration
 interface CacheEntry {
   response: string;
@@ -33,13 +29,67 @@ interface CacheEntry {
   tokenCount: number;
 }
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+// Cache will be initialized in activate() function with user settings
+let cache: LRUCache<string, CacheEntry>;
+let CACHE_TTL_MS: number;
 
+// Initialize cache with user settings
+function initializeCache(): void {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  const maxItems = config.get<number>('cacheMaxItems') || 100;
+  const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
+  
+  CACHE_TTL_MS = ttlMinutes * 60 * 1000;
+  cache = new LRUCache<string, CacheEntry>({ max: maxItems });
+  
+  console.log(`Grok cache initialized: max ${maxItems} items, TTL ${ttlMinutes} minutes`);
+}
+
+// Check if cache is enabled
+function isCacheEnabled(): boolean {
+  const config = vscode.workspace.getConfiguration('grokIntegration');
+  return config.get<boolean>('enableCache') ?? true;
+}
+
+// Utility Functions
 // Add the missing generateCacheKey function
 function generateCacheKey(code: string, language: string, action: string): string {
   const crypto = require('crypto');
   const content = `${action}:${language}:${code}`;
   return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+}
+
+// Get from Cache
+function getFromCache(key: string): CacheEntry | undefined {
+  if (!cache || !isCacheEnabled()) {
+    return undefined;
+  }
+  
+  const cached = cache.get(key);
+  if (cached) {
+    // Check if cache entry is still valid (not expired)
+    const isExpired = Date.now() - cached.timestamp > CACHE_TTL_MS;
+    if (isExpired) {
+      cache.delete(key);
+      return undefined;
+    }
+    return cached;
+  }
+  return undefined;
+}
+
+// Set to Cache
+function setToCache(key: string, response: string, tokenCount: number): void {
+  if (!cache || !isCacheEnabled()) {
+    return;
+  }
+  
+  const cacheEntry: CacheEntry = {
+    response,
+    timestamp: Date.now(),
+    tokenCount
+  };
+  cache.set(key, cacheEntry);
 }
 
 // Fix the redactSecrets function to be more targeted and prevent Unicode corruption
@@ -560,7 +610,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     }
 
     const config = vscode.workspace.getConfiguration('grokIntegration');
-    const cacheEnabled = config.get<boolean>('enableCache') ?? true;
+    const cacheEnabled = isCacheEnabled();
     
     // Sanitize code for JSON safety first, then redact secrets
     const sanitizedCode = sanitizeForJson(code);
@@ -570,16 +620,12 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     const cacheKey = generateCacheKey(sanitizedCode, language, action);
     
     // Check cache first if enabled
-    if (cacheEnabled && cache.has(cacheKey)) {
-      const cached = cache.get(cacheKey) as CacheEntry;
-      const isExpired = Date.now() - cached.timestamp > CACHE_TTL_MS;
-      
-      if (!isExpired) {
+    if (cacheEnabled) {
+      const cached = getFromCache(cacheKey);
+      if (cached) {
         vscode.window.showInformationMessage('📦 Using cached response');
         panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(cached.response) });
         return cached.response;
-      } else {
-        cache.delete(cacheKey);
       }
     }
 
@@ -625,12 +671,7 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 
     // Cache the response if enabled
     if (cacheEnabled && fullResponse) {
-      const cacheEntry: CacheEntry = {
-        response: fullResponse,
-        timestamp: Date.now(),
-        tokenCount: tokenCount
-      };
-      cache.set(cacheKey, cacheEntry);
+      setToCache(cacheKey, fullResponse, tokenCount);
     }
 
     panel.webview.postMessage({ type: 'complete', html: convertMarkdownToHtml(fullResponse) });
@@ -916,7 +957,7 @@ const chatHandler = {
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
         ],
-        max_tokens,
+        max_tokens: maxTokens,
         temperature: 0.2,
         stream: true,
       });
@@ -953,6 +994,21 @@ const chatHandler = {
 // Extension Lifecycle
 export async function activate(context: vscode.ExtensionContext) {
   try {
+    // Initialize cache with user settings
+    initializeCache();
+    
+    // Listen for configuration changes to update cache settings
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('grokIntegration.cacheMaxItems') ||
+            event.affectsConfiguration('grokIntegration.cacheTtlMinutes') ||
+            event.affectsConfiguration('grokIntegration.enableCache')) {
+          initializeCache(); // Reinitialize cache with new settings
+          vscode.window.showInformationMessage('🔄 Grok cache settings updated.');
+        }
+      })
+    );
+
     // Track request count for rate limiting
     let requestCount = 0;
     // Reset requestCount every minute
@@ -991,7 +1047,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`Error in ${commandId}: ${err instanceof Error ? err.message : String(err)}`);
           }
         });
-      };
+      });
     };
 
     const commands = [
@@ -1023,13 +1079,38 @@ export async function activate(context: vscode.ExtensionContext) {
       registerCancellableCommand('grok-integration.showErrorLog', async () => await showErrorLogCommand()),
       registerCancellableCommand('grok-integration.clearErrorLog', async () => await clearErrorLogCommand()),
       vscode.commands.registerCommand('grok-integration.clearCache', async () => {
-        cache.clear();
-        vscode.window.showInformationMessage('🗑️ Grok response cache cleared.');
+        if (cache) {
+          cache.clear();
+          vscode.window.showInformationMessage('🗑️ Grok response cache cleared.');
+        } else {
+          vscode.window.showWarningMessage('Cache not initialized.');
+        }
       }),
       vscode.commands.registerCommand('grok-integration.showCacheStats', async () => {
-        const size = cache.size;
-        const maxSize = cache.max;
-        vscode.window.showInformationMessage(`📊 Cache: ${size}/${maxSize} entries`);
+        if (cache) {
+          const size = cache.size;
+          const maxSize = cache.max;
+          const cacheEnabled = isCacheEnabled();
+          const config = vscode.workspace.getConfiguration('grokIntegration');
+          const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
+          vscode.window.showInformationMessage(`📊 Cache: ${size}/${maxSize} entries, TTL: ${ttlMinutes}min, Enabled: ${cacheEnabled}`);
+        } else {
+          vscode.window.showWarningMessage('Cache not initialized.');
+        }
+      }),
+      vscode.commands.registerCommand('grok-integration.resetCacheSettings', async () => {
+        const proceed = await vscode.window.showWarningMessage(
+          'This will reset cache settings to defaults and clear current cache. Continue?',
+          'Yes', 'No'
+        );
+        if (proceed === 'Yes') {
+          const config = vscode.workspace.getConfiguration('grokIntegration');
+          await config.update('enableCache', true, vscode.ConfigurationTarget.Global);
+          await config.update('cacheMaxItems', 100, vscode.ConfigurationTarget.Global);
+          await config.update('cacheTtlMinutes', 30, vscode.ConfigurationTarget.Global);
+          initializeCache(); // Reinitialize with new settings
+          vscode.window.showInformationMessage('🔄 Cache settings reset to defaults.');
+        }
       }),
       registerCancellableCommand('grok-integration.selectWorkspaceFiles', async (token) => await selectWorkspaceFilesCommand(context, token)),
       registerCancellableCommand('grok-integration.exportAllWorkspaceFiles', async (token) => await exportAllWorkspaceFilesCommand(context, token)),
@@ -1131,7 +1212,7 @@ export async function addFileContents(uri: vscode.Uri) {
 
     vscode.window.showInformationMessage(`Added contents of ${uri.fsPath}`);
   } catch (error) {
-    vscode.window.showErrorMessage(`Error reading file: ${error.message}`);
+    vscode.window.showErrorMessage(`Error reading file: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -1141,8 +1222,8 @@ vscode.commands.registerCommand('grok-integration.addFileContents', async (uri) 
 });
 
 // Add these utility functions after your existing utility functions
-export function isValidExtension(filePath: string): boolean {
-  const filename = path.basename(filePath);
+export function isValidExtension(uri: vscode.Uri): boolean {
+  const filename = path.basename(uri.path);
   if (!filename) {
     return false;
   }
@@ -1164,8 +1245,8 @@ export function isValidExtension(filePath: string): boolean {
   return VALID_EXTENSIONS.has(extension);
 }
 
-function notOnExcludeList(filePath: string): boolean {
-  const filename = path.basename(filePath);
+function notOnExcludeList(uri: vscode.Uri): boolean {
+  const filename = path.basename(uri.path);
   if (!filename) {
     return false;
   }
@@ -1177,7 +1258,7 @@ export async function readFileAsUtf8(uri: vscode.Uri) {
   return new TextDecoder("utf-8").decode(fileContent);
 }
 
-export async function getFilesList(): Promise<string[]> {
+export async function getFilesList(): Promise<vscode.Uri[]> {
   const gitFiles = await getGitLsFilesOutputAsArray();
   return gitFiles.filter(isValidExtension).filter(notOnExcludeList);
 }
@@ -1192,14 +1273,13 @@ export async function getWorkspaceFilesContents(): Promise<{ path: string; conte
   const files = await getFilesList();
   const results: { path: string; content: string }[] = [];
 
-  for (const relativePath of files) {
-    const fullPath = path.join(workspaceRoot, relativePath);
-    const uri = vscode.Uri.file(fullPath);
+  for (const fileUri of files) {
     try {
-      const content = await readFileAsUtf8(uri);
+      const content = await readFileAsUtf8(fileUri);
+      const relativePath = vscode.workspace.asRelativePath(fileUri);
       results.push({ path: relativePath, content });
     } catch (error) {
-      console.error(`Failed to read file ${relativePath}: ${error}`);
+      console.error(`Failed to read file ${fileUri.path}: ${error}`);
     }
   }
 
@@ -1218,11 +1298,15 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
 
     // Show quick pick to select multiple files
     const selectedFiles = await vscode.window.showQuickPick(
-      files.map(file => ({ 
-        label: file, 
-        picked: false,
-        description: path.extname(file) || 'No extension'
-      })),
+      files.map(fileUri => {
+        const relativePath = vscode.workspace.asRelativePath(fileUri);
+        return { 
+          label: relativePath, 
+          picked: false,
+          description: path.extname(fileUri.path) || 'No extension',
+          uri: fileUri
+        };
+      }),
       {
         canPickMany: true,
         placeHolder: 'Select files to export to Grok (use Ctrl/Cmd+click for multiple)',
@@ -1237,14 +1321,10 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
 
     // Prepare context with selected files
     let combinedContent = '';
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const workspaceRoot = workspaceFolders?.[0]?.uri.fsPath || '';
 
     for (const file of selectedFiles) {
-      const fullPath = path.join(workspaceRoot, file.label);
-      const uri = vscode.Uri.file(fullPath);
       try {
-        const content = await readFileAsUtf8(uri);
+        const content = await readFileAsUtf8(file.uri);
         combinedContent += `\n\n--- FILE: ${file.label} ---\n${content}\n--- END FILE ---`;
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to read ${file.label}: ${error}`);

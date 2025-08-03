@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.7.002",
+  "version": "1.7.1",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
@@ -87,6 +87,21 @@
         "command": "grok-integration.showTokenCount",
         "title": "🔢 Grok: Show Token Count",
         "description": "Display the estimated token count for your selected code in a webview panel"
+      },
+      {
+        "command": "grok-integration.clearCache",
+        "title": "🗑️ Grok: Clear Cache",
+        "description": "Clear all cached responses to free memory and force fresh API calls"
+      },
+      {
+        "command": "grok-integration.showCacheStats",
+        "title": "📊 Grok: Show Cache Statistics",
+        "description": "Display current cache usage, settings, and performance statistics"
+      },
+      {
+        "command": "grok-integration.resetCacheSettings",
+        "title": "🔄 Grok: Reset Cache Settings",
+        "description": "Reset cache configuration to default values and clear current cache"
       },
       {
         "command": "grok.addFileContents",
@@ -197,6 +212,34 @@
           "default": "grok-3-mini",
           "description": "Grok model name to use for completions. You must have access to the selected model. Check the latest available models at https://console.x.ai and update this setting as needed.",
           "markdownDescription": "Grok model name to use for completions. **Requirements:** You must have access to the selected model (see your team at [console.x.ai](https://console.x.ai)). **Check the latest available models:** [console.x.ai](https://console.x.ai)) and update this setting as needed."
+        },
+        "grokIntegration.enableCache": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable response caching to improve performance and reduce API calls for repeated requests."
+        },
+        "grokIntegration.cacheMaxItems": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Maximum number of cached responses to store in memory. Higher values use more memory but provide better cache hit rates.",
+          "markdownDescription": "Maximum number of cached responses to store in memory. **Range:** 10-1000 items. Higher values use more memory but provide better cache hit rates."
+        },
+        "grokIntegration.cacheTtlMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "How long to keep cached responses (in minutes) before they expire. Set lower for more fresh responses, higher for better performance.",
+          "markdownDescription": "How long to keep cached responses (in minutes) before they expire. **Range:** 1-1440 minutes (24 hours). Set lower for more fresh responses, higher for better performance."
+        },
+        "grokIntegration.tokenMultiplier": {
+          "type": "number",
+          "default": 1.1,
+          "minimum": 1.0,
+          "maximum": 2.0,
+          "description": "Multiplier for token estimation. Increase if you're hitting token limits frequently, decrease for more accurate estimates."
         }
       }
     }
