@@ -1,49 +1,38 @@
 export const VALID_EXTENSIONS = new Set<string>([
-  // Common Programming Languages
-  // C/C++
-  ".c",
-  ".cpp",
-  ".cxx",
-  ".cc",
-  ".h",
-  ".hpp",
-  ".hxx",
-  // C#
-  ".cs",
-  // Java
-  ".java",
-  // Python
-  ".py",
-  // JavaScript, JSX
-  ".js",
-  ".jsx",
   // TypeScript, TSX
   ".ts",
   ".tsx",
+  // JavaScript, JSX
+  ".js",
+  ".jsx",
+  // Python
+  ".py",
+  // Java
+  ".java",
+  // C/C++
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  // C#
+  ".cs",
+  // PHP
+  ".php",
+  // Ruby
+  ".rb",
   // Go
   ".go",
   // Rust
   ".rs",
-  // Ruby
-  ".rb",
-  // PHP
-  ".php",
   // Swift
   ".swift",
   // Kotlin
   ".kt",
-  ".kts",
   // Scala
   ".scala",
-  // Perl
-  ".pl",
-  ".pm",
-  // Lua
-  ".lua",
-  // R
-  ".r",
   // MATLAB/Objective-C
   ".m",
+  ".mm",
   // Dart
   ".dart",
   // Erlang

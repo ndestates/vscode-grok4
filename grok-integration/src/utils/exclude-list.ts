@@ -1,1 +1,27 @@
-export const EXCLUDE_LIST = new Set<string>(["package-lock.json"]);
+export const EXCLUDE_LIST = new Set([
+  'node_modules',
+  '.git',
+  '.vscode',
+  'dist',
+  'build',
+  'out',
+  'target',
+  '.next',
+  '.nuxt',
+  'coverage',
+  '.nyc_output',
+  '.cache',
+  'tmp',
+  'temp',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  '.DS_Store',
+  'Thumbs.db',
+  '*.log',
+  '*.vsix',
+  '*.exe',
+  '*.dll',
+  '*.so',
+  '*.dylib'
+]);

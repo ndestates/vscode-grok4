@@ -104,8 +104,19 @@
         "description": "Reset cache configuration to default values and clear current cache"
       },
       {
-        "command": "grok.addFileContents",
-        "title": "Grok: Add File Contents to Chat"
+        "command": "grok-integration.selectWorkspaceFiles",
+        "title": "Grok: Select Workspace Files",
+        "category": "Grok"
+      },
+      {
+        "command": "grok-integration.exportAllWorkspaceFiles",
+        "title": "Grok: Export All Workspace Files",
+        "category": "Grok"
+      },
+      {
+        "command": "grok-integration.askGrokWorkspace",
+        "title": "Grok: Ask Grok About Workspace",
+        "category": "Grok"
       }
     ],
     "chatParticipants": [
