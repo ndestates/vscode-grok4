@@ -1,3 +1,57 @@
+# 1.7.1 (2025-08-03)
+
+## Major Features
+
+### 🚀 Smart Caching System
+- **Intelligent LRU Cache**: 10x faster responses for repeated queries with configurable memory management
+- **User-Configurable Settings**: Cache size (10-1000 items), TTL (1-1440 minutes), enable/disable toggle
+- **Privacy-First Design**: Only non-sensitive data cached, API keys and secrets automatically redacted
+- **Cache Management Commands**: View statistics, clear cache, reset settings via Command Palette
+- **Real-time Updates**: Settings changes apply immediately without extension restart
+- **Performance Notifications**: "📦 Using cached response" indicators for cache hits
+
+### 📁 Workspace Export & Analysis
+- **Select Multiple Files**: Choose specific files for targeted multi-file analysis via quick picker
+- **Full Workspace Export**: Export entire workspace with smart filtering (excludes binary files, node_modules)
+- **Custom Workspace Queries**: Ask specific questions about entire codebase ("Find bugs", "Explain architecture")
+- **Intelligent File Filtering**: Automatically excludes binary files, dependencies, and sensitive data
+- **Token-Aware Processing**: Handles large workspaces with token limit warnings and user consent
+
+### ⚙️ Enhanced Configuration
+- **Cache Settings**: `enableCache`, `cacheMaxItems`, `cacheTtlMinutes` for fine-tuned performance control
+- **Token Estimation**: Configurable `tokenMultiplier` for more accurate API usage estimation
+- **Live Configuration**: All settings update immediately without requiring extension reload
+
+## Added
+- **New Commands**:
+  - `Grok: Select Workspace Files` - Multi-file selection and analysis
+  - `Grok: Export All Workspace Files` - Complete workspace export
+  - `Grok: Ask Grok About Workspace` - Custom workspace queries
+  - `Grok: Show Cache Statistics` - Monitor cache performance
+  - `Grok: Clear Cache` - Force fresh responses
+  - `Grok: Reset Cache Settings` - Return to default configuration
+
+- **New Settings**:
+  - `grokIntegration.enableCache` - Enable/disable response caching
+  - `grokIntegration.cacheMaxItems` - Maximum cached responses (10-1000)
+  - `grokIntegration.cacheTtlMinutes` - Cache validity period (1-1440 minutes)
+  - `grokIntegration.tokenMultiplier` - Token estimation accuracy (1.0-2.0)
+
+## Improved
+- **Performance**: Instant responses for repeated queries through intelligent caching
+- **Cost Efficiency**: Reduced API calls through smart caching of identical requests
+- **Project Analysis**: Comprehensive multi-file and workspace-wide code analysis
+- **User Experience**: Real-time cache status notifications and statistics
+- **Documentation**: Comprehensive README updates with usage examples and best practices
+- **Memory Management**: LRU eviction and configurable limits prevent memory bloat
+
+## Technical
+- **Cache Implementation**: LRU cache with automatic expiration and memory management
+- **File Processing**: Enhanced file filtering and validation for workspace operations
+- **Configuration System**: Dynamic settings updates with immediate effect
+- **Error Handling**: Robust error handling for cache operations and workspace processing
+- **Documentation**: Added detailed CACHE_MANAGEMENT.md documentation
+
 # 1.6.1 (2025-07-26)
 - Default Grok model updated to `grok-4-0709` for improved compatibility and performance.
 
