@@ -16,6 +16,7 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - **📊 Cache Management**: Built-in commands to view stats, clear cache, and reset settings
 
 **📁 Workspace Export Features** - Analyze entire projects!
+
 - **🗂️ Select Multiple Files**: Choose specific files to send to Grok for analysis
 - **🌐 Full Workspace Export**: Export all valid files in your workspace to Grok
 - **❓ Custom Workspace Queries**: Ask specific questions about your entire codebase
