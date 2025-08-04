@@ -2,9 +2,13 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
+### 🐛 Version 1.7.2
+- Minor bug fixes
+
 ## 🚀 Major Update in v1.7.1
 
 **🎯 Smart Caching System** - Revolutionary performance improvements!
+
 - **⚡ 10x Faster Responses**: Instant results for repeated queries with intelligent LRU caching
 - **💰 Reduce API Costs**: Avoid duplicate API calls for identical requests  
 - **🎛️ Full User Control**: Configure cache size (10-1000 items), TTL (1-1440 minutes), and enable/disable
