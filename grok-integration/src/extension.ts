@@ -54,42 +54,95 @@ function isCacheEnabled(): boolean {
 // Utility Functions
 // Add the missing generateCacheKey function
 function generateCacheKey(code: string, language: string, action: string): string {
-  const crypto = require('crypto');
-  const content = `${action}:${language}:${code}`;
-  return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+  // Input validation
+  if (typeof code !== 'string' || typeof language !== 'string' || typeof action !== 'string') {
+    throw new Error('generateCacheKey: All parameters must be strings');
+  }
+  
+  try {
+    const crypto = require('crypto');
+    // Normalize inputs to ensure consistent keys
+    const normalizedCode = code.trim();
+    const normalizedLanguage = language.toLowerCase().trim();
+    const normalizedAction = action.toLowerCase().trim();
+    
+    const content = `${normalizedAction}:${normalizedLanguage}:${normalizedCode}`;
+    
+    // Limit content length to prevent performance issues
+    const truncatedContent = content.length > 50000 ? 
+      content.substring(0, 50000) + `[TRUNCATED:${content.length}]` : content;
+    
+    return crypto.createHash('sha256').update(truncatedContent, 'utf8').digest('hex').substring(0, 16);
+  } catch (error) {
+    console.error('Error generating cache key:', error);
+    // Fallback to simple hash
+    return (code + language + action).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+  }
 }
 
 // Get from Cache
 function getFromCache(key: string): CacheEntry | undefined {
-  if (!cache || !isCacheEnabled()) {
+  if (!cache || !isCacheEnabled() || typeof key !== 'string' || key.length === 0) {
     return undefined;
   }
   
-  const cached = cache.get(key);
-  if (cached) {
-    // Check if cache entry is still valid (not expired)
-    const isExpired = Date.now() - cached.timestamp > CACHE_TTL_MS;
-    if (isExpired) {
-      cache.delete(key);
-      return undefined;
+  try {
+    const cached = cache.get(key);
+    if (cached) {
+      // Validate cache entry structure
+      if (!cached.timestamp || !cached.response || typeof cached.timestamp !== 'number') {
+        console.warn(`Invalid cache entry found for key: ${key}`);
+        cache.delete(key);
+        return undefined;
+      }
+      
+      // Check if cache entry is still valid (not expired)
+      const config = vscode.workspace.getConfiguration('grokIntegration');
+      const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
+      const ttlMs = ttlMinutes * 60 * 1000;
+      const isExpired = Date.now() - cached.timestamp > ttlMs;
+      
+      if (isExpired) {
+        cache.delete(key);
+        return undefined;
+      }
+      return cached;
     }
-    return cached;
+    return undefined;
+  } catch (error) {
+    console.error('Error retrieving from cache:', error);
+    return undefined;
   }
-  return undefined;
 }
 
 // Set to Cache
 function setToCache(key: string, response: string, tokenCount: number): void {
-  if (!cache || !isCacheEnabled()) {
+  if (!cache || !isCacheEnabled() || typeof key !== 'string' || typeof response !== 'string') {
     return;
   }
   
-  const cacheEntry: CacheEntry = {
-    response,
-    timestamp: Date.now(),
-    tokenCount
-  };
-  cache.set(key, cacheEntry);
+  // Validate inputs
+  if (key.length === 0 || response.length === 0) {
+    return;
+  }
+  
+  // Check response size limit (prevent memory abuse)
+  const maxResponseSize = 1000000; // 1MB
+  if (response.length > maxResponseSize) {
+    console.warn(`Response too large for caching: ${response.length} bytes`);
+    return;
+  }
+  
+  try {
+    const cacheEntry: CacheEntry = {
+      response,
+      timestamp: Date.now(),
+      tokenCount
+    };
+    cache.set(key, cacheEntry);
+  } catch (error) {
+    console.error('Error setting cache entry:', error);
+  }
 }
 
 // Fix the redactSecrets function to be more targeted and prevent Unicode corruption
@@ -116,25 +169,43 @@ function redactSecrets(text: string): string {
 
 // Add this missing sanitizeForJson function
 function sanitizeForJson(text: string): string {
-  return text
-    // Fix incomplete Unicode escapes by removing them
-    .replace(/\\u[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])/g, '')
-    // Remove other potentially problematic escape sequences
-    .replace(/\\x[0-9A-Fa-f]{1}(?![0-9A-Fa-f])/g, '')
-    // Handle control characters that might break JSON
-    .replace(/[\x00-\x1F\x7F]/g, (char) => {
-      switch (char) {
-        case '\n': return '\\n';
-        case '\r': return '\\r';
-        case '\t': return '\\t';
-        case '\b': return '\\b';
-        case '\f': return '\\f';
-        default: return ''; // Remove other control characters
-      }
-    })
-    // Escape backslashes and quotes for JSON safety
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"');
+  // Input validation
+  if (typeof text !== 'string') {
+    return '';
+  }
+  
+  if (text.length === 0) {
+    return text;
+  }
+  
+  try {
+    return text
+      // Fix incomplete Unicode escapes by removing them
+      .replace(/\\u[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])/g, '')
+      // Remove other potentially problematic escape sequences
+      .replace(/\\x[0-9A-Fa-f]{1}(?![0-9A-Fa-f])/g, '')
+      // Handle control characters that might break JSON
+      .replace(/[\x00-\x1F\x7F]/g, (char) => {
+        switch (char) {
+          case '\n': return '\\n';
+          case '\r': return '\\r';
+          case '\t': return '\\t';
+          case '\b': return '\\b';
+          case '\f': return '\\f';
+          default: return ''; // Remove other control characters
+        }
+      })
+      // Escape backslashes and quotes for JSON safety
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      // Remove null bytes that can cause issues
+      .replace(/\0/g, '')
+      // Limit extremely long strings to prevent memory issues
+      .substring(0, 1000000); // 1MB limit
+  } catch (error) {
+    console.error('Error sanitizing text for JSON:', error);
+    return ''; // Return empty string on error
+  }
 }
 
 function convertMarkdownToHtml(markdown: string): string {
@@ -423,18 +494,60 @@ async function getWorkspaceContext(): Promise<string> {
 
 // Updated estimateTokens function with configurable multiplier
 async function estimateTokens(text: string, files: string[] = []): Promise<number> {
+  // Input validation
+  if (typeof text !== 'string') {
+    return 0;
+  }
+  
+  if (text.length === 0) {
+    return 0;
+  }
+  
+  // Validate files array
+  if (!Array.isArray(files)) {
+    files = [];
+  }
+  
   const config = vscode.workspace.getConfiguration('grokIntegration');
-  const multiplier = config.get<number>('tokenMultiplier') || 1.1;  // Allow configuration via settings
+  const multiplier = Math.max(1.0, Math.min(2.0, config.get<number>('tokenMultiplier') || 1.1)); // Clamp between 1.0 and 2.0
+  
   try {
-    let total = Math.ceil((text.split(/\s+/).length + 1) * multiplier);
+    // Improved token estimation using more accurate word counting
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+    let total = Math.ceil(words.length * multiplier);
+    
+    // Add tokens for special characters and punctuation (rough estimate)
+    const specialChars = (text.match(/[^\w\s]/g) || []).length;
+    total += Math.ceil(specialChars * 0.1 * multiplier);
+    
+    // Process files if provided
     for (const file of files) {
-      const content = await fs.promises.readFile(file, 'utf-8');
-      total += Math.ceil((content.split(/\s+/).length + 1) * multiplier);
+      try {
+        if (typeof file !== 'string' || file.length === 0) {
+          continue;
+        }
+        
+        const content = await fs.promises.readFile(file, 'utf-8');
+        if (content && content.length > 0) {
+          const fileWords = content.trim().split(/\s+/).filter(word => word.length > 0);
+          total += Math.ceil(fileWords.length * multiplier);
+          
+          const fileSpecialChars = (content.match(/[^\w\s]/g) || []).length;
+          total += Math.ceil(fileSpecialChars * 0.1 * multiplier);
+        }
+      } catch (fileError) {
+        console.warn(`Error reading file ${file} for token estimation:`, fileError);
+        // Continue with other files
+      }
     }
-    return total;
-  } catch {
+    
+    return Math.max(1, total); // Ensure at least 1 token
+  } catch (error) {
+    console.warn('Error in token estimation, falling back to character count:', error);
+    // Fallback: rough character-based estimation
     const cleaned = text.trim().replace(/\s+/g, ' ');
-    return Math.ceil((cleaned.length / 4) * multiplier);
+    const estimated = Math.ceil((cleaned.length / 4) * multiplier);
+    return Math.max(1, estimated);
   }
 }
 
@@ -554,9 +667,96 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                   continue;
                 }
                 const fileUri = vscode.Uri.file(resolvedPath);
-                const doc = await vscode.workspace.openTextDocument(fileUri);
+                
+                let doc: vscode.TextDocument;
+                try {
+                  doc = await vscode.workspace.openTextDocument(fileUri);
+                } catch (openError) {
+                  // File doesn't exist, create it if the action is appropriate
+                  if (change.action === 'replace' || change.action === 'insert') {
+                    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('', 'utf8'));
+                    doc = await vscode.workspace.openTextDocument(fileUri);
+                  } else {
+                    throw openError;
+                  }
+                }
+                
                 const edit = new vscode.WorkspaceEdit();
-                edit.replace(fileUri, new vscode.Range(0, 0, doc.lineCount, 0), change.code);
+                
+                // Apply different types of changes based on action and line information
+                if (change.lineStart !== undefined && change.lineEnd !== undefined) {
+                  // Specific line range replacement
+                  const startPos = new vscode.Position(Math.max(0, change.lineStart - 1), 0);
+                  const endPos = new vscode.Position(Math.min(doc.lineCount - 1, change.lineEnd - 1), doc.lineAt(Math.min(doc.lineCount - 1, change.lineEnd - 1)).text.length);
+                  edit.replace(fileUri, new vscode.Range(startPos, endPos), change.code);
+                } else if (change.action === 'append') {
+                  // Append to end of file
+                  const lastLine = doc.lineCount - 1;
+                  const lastLineLength = doc.lineAt(lastLine).text.length;
+                  const appendPos = new vscode.Position(lastLine, lastLineLength);
+                  edit.insert(fileUri, appendPos, '\n' + change.code);
+                } else if (change.action === 'prepend') {
+                  // Insert at beginning of file
+                  const startPos = new vscode.Position(0, 0);
+                  edit.insert(fileUri, startPos, change.code + '\n');
+                } else {
+                  // Default behavior: try to find and replace similar code, or warn about full replacement
+                  const fileContent = doc.getText();
+                  
+                  // Try to find a similar code block to replace
+                  const lines = change.code.split('\n');
+                  const searchPattern = lines[0].trim(); // Use first line as search pattern
+                  
+                  if (searchPattern && fileContent.includes(searchPattern)) {
+                    // Try to find the existing code and replace it intelligently
+                    const fileLines = fileContent.split('\n');
+                    let foundIndex = -1;
+                    
+                    for (let i = 0; i < fileLines.length; i++) {
+                      if (fileLines[i].trim() === searchPattern) {
+                        foundIndex = i;
+                        break;
+                      }
+                    }
+                    
+                    if (foundIndex >= 0) {
+                      // Replace from the found line, trying to match the scope of the change
+                      const startPos = new vscode.Position(foundIndex, 0);
+                      // For now, replace just the matching line - this could be enhanced further
+                      const endPos = new vscode.Position(foundIndex, fileLines[foundIndex].length);
+                      edit.replace(fileUri, new vscode.Range(startPos, endPos), change.code);
+                    } else {
+                      // Fallback: append the code with a warning
+                      const lastLine = doc.lineCount - 1;
+                      const lastLineLength = doc.lineAt(lastLine).text.length;
+                      const appendPos = new vscode.Position(lastLine, lastLineLength);
+                      edit.insert(fileUri, appendPos, '\n\n// === GROK SUGGESTED CODE (please review and place appropriately) ===\n' + change.code + '\n// === END GROK SUGGESTION ===\n');
+                      vscode.window.showWarningMessage(`Could not find exact location for changes in ${change.file}. Code added at end of file with markers.`);
+                    }
+                  } else {
+                    // No matching content found, ask user for confirmation before full file replacement
+                    const userChoice = await vscode.window.showWarningMessage(
+                      `Grok wants to replace the entire content of ${change.file}. This will erase all existing code. Continue?`,
+                      { modal: true },
+                      'Replace Entire File',
+                      'Append with Markers',
+                      'Skip'
+                    );
+                    
+                    if (userChoice === 'Replace Entire File') {
+                      edit.replace(fileUri, new vscode.Range(0, 0, doc.lineCount, 0), change.code);
+                    } else if (userChoice === 'Append with Markers') {
+                      const lastLine = doc.lineCount - 1;
+                      const lastLineLength = doc.lineAt(lastLine).text.length;
+                      const appendPos = new vscode.Position(lastLine, lastLineLength);
+                      edit.insert(fileUri, appendPos, '\n\n// === GROK SUGGESTED CODE (please review and place appropriately) ===\n' + change.code + '\n// === END GROK SUGGESTION ===\n');
+                    } else {
+                      vscode.window.showInformationMessage(`Skipped changes to ${change.file}`);
+                      continue;
+                    }
+                  }
+                }
+                
                 await vscode.workspace.applyEdit(edit);
                 await doc.save();
                 vscode.window.showInformationMessage(`Applied Grok changes to ${change.file}`);
@@ -589,15 +789,81 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 }
 
 // Helper to parse Grok markdown response for code changes
-function parseGrokCodeChanges(markdown: string): Array<{file: string, code: string}> {
-  const changes: Array<{file: string, code: string}> = [];
+function parseGrokCodeChanges(markdown: string): Array<{file: string, code: string, action?: string, lineStart?: number, lineEnd?: number}> {
+  const changes: Array<{file: string, code: string, action?: string, lineStart?: number, lineEnd?: number}> = [];
+  
+  // Input validation
+  if (!markdown || typeof markdown !== 'string') {
+    return changes;
+  }
+  
+  // Enhanced pattern to capture different types of changes
   const fileBlockRegex = /--- FILE: ([^\n]+) ---([\s\S]*?)```([a-zA-Z]*)\n([\s\S]*?)```/g;
   let match;
-  while ((match = fileBlockRegex.exec(markdown)) !== null) {
-    const file = match[1].trim();
+  let iterationCount = 0;
+  const maxIterations = 100; // Prevent infinite loops
+  
+  while ((match = fileBlockRegex.exec(markdown)) !== null && iterationCount < maxIterations) {
+    iterationCount++;
+    
+    const file = match[1]?.trim();
     const code = match[4];
-    changes.push({ file, code });
+    const context = match[2] || ''; // Content between file declaration and code block
+    
+    // Validate file path
+    if (!file || file.length === 0) {
+      console.warn('Skipping code change with empty file path');
+      continue;
+    }
+    
+    // Security check: validate file path
+    if (file.includes('..') || path.isAbsolute(file)) {
+      console.warn(`Skipping potentially unsafe file path: ${file}`);
+      continue;
+    }
+    
+    // Validate code content
+    if (code === undefined || code === null) {
+      console.warn(`Skipping code change with no content for file: ${file}`);
+      continue;
+    }
+    
+    // Try to extract action and line range from context
+    let action = 'replace'; // default action
+    let lineStart: number | undefined;
+    let lineEnd: number | undefined;
+    
+    // Look for action indicators in the context
+    const actionMatch = context.match(/(?:action|operation):\s*(replace|insert|append|prepend)/i);
+    if (actionMatch) {
+      const detectedAction = actionMatch[1].toLowerCase();
+      if (['replace', 'insert', 'append', 'prepend'].includes(detectedAction)) {
+        action = detectedAction;
+      }
+    }
+    
+    // Look for line range indicators
+    const lineRangeMatch = context.match(/lines?\s*(\d+)(?:\s*-\s*(\d+))?/i);
+    if (lineRangeMatch) {
+      const startLine = parseInt(lineRangeMatch[1], 10);
+      const endLine = lineRangeMatch[2] ? parseInt(lineRangeMatch[2], 10) : startLine;
+      
+      // Validate line numbers
+      if (startLine > 0 && endLine >= startLine && endLine <= 10000) { // Reasonable limits
+        lineStart = startLine;
+        lineEnd = endLine;
+      } else {
+        console.warn(`Invalid line range ${startLine}-${endLine} for file: ${file}`);
+      }
+    }
+    
+    changes.push({ file, code, action, lineStart, lineEnd });
   }
+  
+  if (iterationCount >= maxIterations) {
+    console.warn('parseGrokCodeChanges: Maximum iterations reached, possible infinite loop prevented');
+  }
+  
   return changes;
 }
 
@@ -631,7 +897,27 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 
     const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
     
-    const prompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+    // Enhanced prompt with guidance for code changes
+    const basePrompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
+    
+    const agentModeGuidance = `\n\nIMPORTANT: If you need to suggest code changes that should be applied to files, format them using this structure:
+
+--- FILE: relative/path/to/file.ext ---
+action: replace/insert/append/prepend
+lines: startLine-endLine (optional, for specific line ranges)
+\`\`\`${language}
+// Your code changes here
+\`\`\`
+
+Examples:
+- For replacing specific lines: "action: replace" and "lines: 10-15"
+- For adding at end: "action: append"
+- For adding at beginning: "action: prepend"
+- For inserting new code: "action: insert" and "lines: 25" (insert after line 25)
+
+Only use this format if you're providing code that should be applied to existing files. For explanations and discussions, use regular markdown.`;
+
+    const prompt = basePrompt + (action.includes('edit') || action.includes('modify') || action.includes('refactor') || action.includes('fix') ? agentModeGuidance : '');
     
     const tokenCount = await estimateTokens(prompt);
     const maxTokens = config.get<number>('maxTokens') || 9000;
@@ -653,9 +939,18 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     
     const stream = await openai.chat.completions.create({
       model: modelName,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a direct and professional AI programming assistant. You are working as a pair programmer.  Please orovide accurate, concise answers with NO witty remarks, jokes, conversational filler, other than polite personality. Be strictly technical and efficient. When suggesting changes, your focus should always be security first, please clearly state which file each change belongs to using `--- FILE: path/to/file.ts ---`. All code must be in proper markdown code blocks with the ability for the user to copy or apply to the relevant area. Focus only on the technical content requested.'
+        },
+        { 
+          role: 'user', 
+          content: `${action} this ${language} code:\n\n${redactedCode}` 
+        }
+      ],
       max_tokens: maxTokens,
-      temperature: 0.5,
+      temperature: 0.2, // Lower temperature for more focused responses
       stream: true,
     });
     
@@ -933,7 +1228,7 @@ const chatHandler = {
     const workspaceInfo = await getWorkspaceContext();
     const userPrompt = request.prompt || 'Hello';
 
-    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers without any witty remarks or conversational filler. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. For example:\n```typescript\n// your typescript code here\n```';
+    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers with NO witty remarks, jokes, conversational filler, or personality. Be strictly technical and efficient. The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). All code suggestions must be enclosed in a language-specific Markdown code block. Focus only on the technical content requested.';
     const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
 
     const maxTokens = config.get<number>('maxTokens') || 9000;
@@ -1432,3 +1727,14 @@ async function askGrokWorkspaceCommand(context: vscode.ExtensionContext, token: 
 export function deactivate() {
     // No explicit cleanup required; VSCode disposes subscriptions automatically.
 }
+
+// Export functions for testing
+export {
+    parseGrokCodeChanges,
+    redactSecrets,
+    sanitizeForJson,
+    estimateTokens,
+    generateCacheKey,
+    convertMarkdownToHtml,
+    notOnExcludeList
+};
