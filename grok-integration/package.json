@@ -33,6 +33,12 @@
     "onCommand:grok-integration.debugTest",
     "onCommand:grok-integration.securityFix",
     "onCommand:grok-integration.showTokenCount",
+    "onCommand:grok-integration.clearCache",
+    "onCommand:grok-integration.showCacheStats",
+    "onCommand:grok-integration.resetCacheSettings",
+    "onCommand:grok-integration.selectWorkspaceFiles",
+    "onCommand:grok-integration.exportAllWorkspaceFiles",
+    "onCommand:grok-integration.askGrokWorkspace",
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
@@ -105,18 +111,18 @@
       },
       {
         "command": "grok-integration.selectWorkspaceFiles",
-        "title": "Grok: Select Workspace Files",
-        "category": "Grok"
+        "title": "🗂️ Grok: Select Workspace Files",
+        "description": "Select multiple files from your workspace to send to Grok for analysis and review"
       },
       {
         "command": "grok-integration.exportAllWorkspaceFiles",
-        "title": "Grok: Export All Workspace Files",
-        "category": "Grok"
+        "title": "📦 Grok: Export All Workspace Files", 
+        "description": "Export all valid workspace files to Grok for comprehensive codebase analysis"
       },
       {
         "command": "grok-integration.askGrokWorkspace",
-        "title": "Grok: Ask Grok About Workspace",
-        "category": "Grok"
+        "title": "❓ Grok: Ask About Workspace",
+        "description": "Ask Grok a custom question about your entire workspace and codebase"
       }
     ],
     "chatParticipants": [
