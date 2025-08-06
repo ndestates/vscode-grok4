@@ -942,7 +942,7 @@ Only use this format if you're providing code that should be applied to existing
       messages: [
         { 
           role: 'system', 
-          content: 'You are a direct and professional AI programming assistant. You are working as a pair programmer.  Please orovide accurate, concise answers with NO witty remarks, jokes, conversational filler, other than polite personality. Be strictly technical and efficient. When suggesting changes, your focus should always be security first, please clearly state which file each change belongs to using `--- FILE: path/to/file.ts ---`. All code must be in proper markdown code blocks with the ability for the user to copy or apply to the relevant area. Focus only on the technical content requested.'
+          content: 'You are a direct and professional AI programming assistant. You are working as a pair programmer.  Please provide accurate, concise answers with NO witty remarks, jokes, conversational filler, other than polite personality. Be strictly technical and efficient. When suggesting changes, your focus should always be security first, please clearly state which file each change belongs to using `--- FILE: path/to/file.ts ---` and also the line number it should be inserted at or which line numbers should be replaced. All code must be in proper markdown code blocks with the ability for the user to copy or apply to the relevant area. Focus only on the technical content requested.'
         },
         { 
           role: 'user', 
@@ -1614,6 +1614,18 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
       return;
     }
 
+    // Get user's instruction for what to do with the selected files
+    const userInstruction = await vscode.window.showInputBox({
+      prompt: `What would you like Grok to do with these ${selectedFiles.length} selected files?`,
+      placeHolder: 'e.g., "Review for security vulnerabilities", "Explain the architecture", "Suggest improvements"',
+      value: 'review and analyze'
+    });
+
+    if (!userInstruction) {
+      vscode.window.showInformationMessage('Operation cancelled - no instruction provided.');
+      return;
+    }
+
     // Prepare context with selected files
     let combinedContent = '';
 
@@ -1629,10 +1641,10 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
     if (combinedContent) {
       await showGrokPanel(
         context, 
-        `Workspace Export (${selectedFiles.length} files)`, 
+        `Workspace Export: ${userInstruction} (${selectedFiles.length} files)`, 
         combinedContent, 
         'multiple', 
-        'review and analyze', 
+        userInstruction, 
         token
       );
     }
@@ -1663,6 +1675,18 @@ async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, 
       }
     }
 
+    // Get user's instruction for what to do with all workspace files
+    const userInstruction = await vscode.window.showInputBox({
+      prompt: `What would you like Grok to do with all ${filesWithContent.length} workspace files?`,
+      placeHolder: 'e.g., "Analyze the overall architecture", "Find potential issues", "Create documentation"',
+      value: 'review and analyze the entire workspace'
+    });
+
+    if (!userInstruction) {
+      vscode.window.showInformationMessage('Operation cancelled - no instruction provided.');
+      return;
+    }
+
     // Combine all file contents
     let combinedContent = '';
     for (const file of filesWithContent) {
@@ -1671,10 +1695,10 @@ async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, 
 
     await showGrokPanel(
       context, 
-      `Full Workspace Export (${filesWithContent.length} files)`, 
+      `Full Workspace Export: ${userInstruction} (${filesWithContent.length} files)`, 
       combinedContent, 
       'multiple', 
-      'review and analyze the entire workspace', 
+      userInstruction, 
       token
     );
 
