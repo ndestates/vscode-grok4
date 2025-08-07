@@ -2,8 +2,12 @@
 
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
-### 🐛 Version 1.7.2
-- Minor bug fixes
+## Version History
+- 1.7.3: Includes amendments to the workspace export functionality. Key changes:
+  - Enhanced export options for workspace configurations.
+  - Improved handling of custom settings and extensions.
+  - Refer to the documentation for detailed guidance on using the new export features.
+- 1.7.2: Includes minor bugfixes. 
 
 ## 🚀 Major Update in v1.7.1
 
@@ -21,6 +25,12 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - **🌐 Full Workspace Export**: Export all valid files in your workspace to Grok
 - **❓ Custom Workspace Queries**: Ask specific questions about your entire codebase
 - **🛡️ Smart Filtering**: Automatically excludes binary files, node_modules, and sensitive data
+
+⚠️ **Important Limits Warning**: 
+- **Token Limits**: Large workspaces may exceed model token limits (default: 9000 tokens)
+- **Model Capacity**: Even premium models have maximum context windows
+- **Recommendation**: Start with "Select Workspace Files" for large projects
+- **Solution**: Increase max tokens in settings or select fewer files if you hit limits
 
 **⚙️ Enhanced Configuration**
 - **🔧 Configurable Cache Settings**: Fine-tune performance vs freshness
@@ -125,6 +135,13 @@ Caching stores your previous Grok responses in memory, so identical requests ret
 **What is Workspace Export?**
 Instead of analyzing single files, you can now send multiple files or your entire workspace to Grok for comprehensive project-level insights!
 
+⚠️ **Before You Start - Important Limits**:
+- **Check Your Token Limit**: Go to Settings → "Grok Integration" → "Max Tokens" (default: 9000)
+- **Large Projects Warning**: Full workspace export may exceed token limits for big codebases
+- **Model Limitations**: Even Grok models have maximum context windows they can process
+- **Best Practice**: Always start with "Select Workspace Files" to test token usage before full export
+- **If Export Fails**: Reduce file count, increase max tokens setting, or break analysis into smaller chunks
+
 **When to Use Workspace Export:**
 - 🔍 **Architecture analysis** - "Explain how these components work together"
 - 🐛 **Bug hunting** - "Find potential issues across my codebase"
@@ -147,19 +164,23 @@ Instead of analyzing single files, you can now send multiple files or your entir
 ```
 1. Press Ctrl+Shift+P  
 2. Type "Grok: Export All Workspace Files"
-3. Confirm if prompted (for large projects)
-4. Grok analyzes your entire codebase
+3. ⚠️ WARNING: May hit token limits on large projects
+4. Confirm if prompted (for large projects)
+5. Grok analyzes your entire codebase
 ```
 **Best for:** Small to medium projects, overall architecture review
+**⚠️ Risk:** Large projects may exceed token/model limits
 
 #### 3. Ask Custom Questions About Workspace
 ```
 1. Press Ctrl+Shift+P
 2. Type "Grok: Ask Grok About Workspace"  
-3. Enter your question (e.g., "Find security vulnerabilities")
-4. Grok analyzes entire workspace with your specific question
+3. ⚠️ WARNING: Analyzes entire workspace - check token limits first
+4. Enter your question (e.g., "Find security vulnerabilities")
+5. Grok analyzes entire workspace with your specific question
 ```
-**Best for:** Targeted project-wide queries
+**Best for:** Targeted project-wide queries on smaller codebases
+**⚠️ Risk:** May hit limits with large projects
 
 **Example Questions for Workspace Analysis:**
 - "Explain the overall architecture of this project"
@@ -384,18 +405,20 @@ ddev exec npx --yes @vscode/vsce package
 5. **Test your connection** if you experience issues
 
 ### 🆕 Workspace Analysis Tips (v1.7.1)
-6. **Start small**: Use "Select Workspace Files" before trying full workspace export
-7. **Be specific with questions**: Instead of "analyze this", try "find performance bottlenecks in these API endpoints"
-8. **Group related files**: Select files that work together (e.g., controller + model + view)
-9. **Watch token limits**: Large workspaces may hit token limits - select key files instead
-10. **Use for code reviews**: Perfect for reviewing feature branches with multiple changed files
+6. **⚠️ Check token limits first**: Use "Show Token Count" before workspace export
+7. **Start small**: Use "Select Workspace Files" before trying full workspace export
+8. **Be specific with questions**: Instead of "analyze this", try "find performance bottlenecks in these API endpoints"
+9. **Group related files**: Select files that work together (e.g., controller + model + view)
+10. **⚠️ Watch token limits**: Large workspaces may hit token limits - select key files instead
+11. **Increase max tokens if needed**: Go to Settings → "Grok Integration" → "Max Tokens"
+12. **Use for code reviews**: Perfect for reviewing feature branches with multiple changed files
 
 ### 🆕 Caching Best Practices (v1.7.1)  
-11. **Recognize cache hits**: Look for "📦 Using cached response" to see when caching helps
-12. **Strategic cache clearing**: Clear cache after major code changes for accurate analysis
-13. **Tune TTL for your workflow**: Short TTL (5-10 min) for active development, longer (60+ min) for stable code
-14. **Monitor cache stats**: Use "Show Cache Statistics" to optimize cache size for your usage patterns
-15. **Combine with workspace features**: Cache works great with workspace export for repeated project analysis
+13. **Recognize cache hits**: Look for "📦 Using cached response" to see when caching helps
+14. **Strategic cache clearing**: Clear cache after major code changes for accurate analysis
+15. **Tune TTL for your workflow**: Short TTL (5-10 min) for active development, longer (60+ min) for stable code
+16. **Monitor cache stats**: Use "Show Cache Statistics" to optimize cache size for your usage patterns
+17. **Combine with workspace features**: Cache works great with workspace export for repeated project analysis
 
 ### 🎯 Specific Use Cases
 
@@ -429,8 +452,10 @@ ddev exec npx --yes @vscode/vsce package
 
 ### Token & Content Issues
 - **Token limit warnings**: Select smaller code sections, increase max tokens, or use "Proceed Anyway"
-- **Workspace export too large**: Use "Select Workspace Files" instead of exporting everything
+- **⚠️ Workspace export too large**: Use "Select Workspace Files" instead of exporting everything
+- **⚠️ Model capacity exceeded**: Break large analysis into smaller chunks or increase token limit
 - **Missing files in workspace export**: Check that files have valid extensions and aren't excluded
+- **⚠️ Before full workspace export**: Always test with a few files first to estimate token usage
 
 ### 🆕 Cache Troubleshooting (v1.7.1)
 - **Cache not working**: Ensure `enableCache` is `true` and you're making identical requests

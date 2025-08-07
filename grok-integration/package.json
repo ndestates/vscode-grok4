@@ -274,10 +274,11 @@
     "build": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package",
+    "package": "vsce package --out ./packages/production/",
     "compile": "tsc -p ./",
     "test": "npm run compile && node ./out/test/runTest.js",
-    "test-watch": "npm run compile && mocha --watch ./out/test/**/*.test.js"
+    "test-watch": "npm run compile && mocha --watch ./out/test/**/*.test.js",
+    "install-vsce-global": "npm install -g @vscode/vsce"
   },
   "devDependencies": {
     "@types/lru-cache": "^7.10.9",
