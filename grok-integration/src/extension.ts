@@ -1342,7 +1342,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`Error in ${commandId}: ${err instanceof Error ? err.message : String(err)}`);
           }
         });
-      };
+      });
     };
 
     const commands = [
