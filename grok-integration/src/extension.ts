@@ -604,7 +604,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
       return;
     }
   }
-  const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true });
+  const panel = vscode.window.createWebviewPanel('grokResponse', title, vscode.ViewColumn.Beside, { enableScripts: true, retainContextWhenHidden: true });
   panel.webview.html = getLoadingHTML();
 
   token.onCancellationRequested(() => {
@@ -1342,7 +1342,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage(`Error in ${commandId}: ${err instanceof Error ? err.message : String(err)}`);
           }
         });
-      });
+      };
     };
 
     const commands = [
