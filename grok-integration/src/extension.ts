@@ -492,66 +492,73 @@ async function getWorkspaceContext(): Promise<string> {
   return `Workspace: ${workspaceName}\nActive File: ${activeFile}`;
 }
 
-// Updated estimateTokens function with configurable multiplier
 async function estimateTokens(text: string, files: string[] = []): Promise<number> {
   // Input validation
-  if (typeof text !== 'string') {
+  if (typeof text !== 'string' || text.length === 0) {
     return 0;
   }
-  
-  if (text.length === 0) {
-    return 0;
-  }
-  
-  // Validate files array
+
   if (!Array.isArray(files)) {
     files = [];
   }
-  
+
+  // Filter and validate files array for security (ensure they are non-empty strings)
+  const validFiles: string[] = files.filter(file => typeof file === 'string' && file.length > 0);
+
   const config = vscode.workspace.getConfiguration('grokIntegration');
-  const multiplier = Math.max(1.0, Math.min(2.0, config.get<number>('tokenMultiplier') || 1.1)); // Clamp between 1.0 and 2.0
-  
+  const multiplier = Math.max(1.0, Math.min(2.0, config.get<number>('tokenMultiplier') || 1.1)); // Clamped between 1.0 and 2.0
+
   try {
-    // Improved token estimation using more accurate word counting
+    // Improved token estimation using word counting
     const words = text.trim().split(/\s+/).filter(word => word.length > 0);
     let total = Math.ceil(words.length * multiplier);
-    
-    // Add tokens for special characters and punctuation (rough estimate)
+
+    // Add tokens for special characters
     const specialChars = (text.match(/[^\w\s]/g) || []).length;
     total += Math.ceil(specialChars * 0.1 * multiplier);
-    
-    // Process files if provided
-    for (const file of files) {
-      try {
-        if (typeof file !== 'string' || file.length === 0) {
-          continue;
+
+    // Process files concurrently for efficiency, using vscode.workspace.fs for secure access
+    if (validFiles.length > 0) {
+      const filePromises = validFiles.map(async (file) => {
+        try {
+          const uri = vscode.Uri.file(file); // Convert to Uri for workspace.fs
+          const content = await vscode.workspace.fs.readFile(uri); // Secure file read
+          const contentString = Buffer.from(content).toString('utf-8'); // Convert Uint8Array to string
+
+          if (contentString && contentString.length > 0) {
+            const fileWords = contentString.trim().split(/\s+/).filter(word => word.length > 0);
+            total += Math.ceil(fileWords.length * multiplier);
+
+            const fileSpecialChars = (contentString.match(/[^\w\s]/g) || []).length;
+            total += Math.ceil(fileSpecialChars * 0.1 * multiplier);
+          }
+        } catch (fileError) {
+          const fileErrorMsg = fileError instanceof Error ? fileError.message : String(fileError);
+          console.warn(`Error reading file ${file} for token estimation: ${fileErrorMsg}`); // Log only message for security
+          // Continue with other files
         }
-        
-        const content = await fs.promises.readFile(file, 'utf-8');
-        if (content && content.length > 0) {
-          const fileWords = content.trim().split(/\s+/).filter(word => word.length > 0);
-          total += Math.ceil(fileWords.length * multiplier);
-          
-          const fileSpecialChars = (content.match(/[^\w\s]/g) || []).length;
-          total += Math.ceil(fileSpecialChars * 0.1 * multiplier);
-        }
-      } catch (fileError) {
-        console.warn(`Error reading file ${file} for token estimation:`, fileError);
-        // Continue with other files
-      }
+      });
+
+      await Promise.all(filePromises); // Process files concurrently
     }
-    
+
     return Math.max(1, total); // Ensure at least 1 token
   } catch (error) {
-    console.warn('Error in token estimation, falling back to character count:', error);
-    // Fallback: rough character-based estimation
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn(`Error in token estimation, falling back to character count: ${errorMsg}`);
     const cleaned = text.trim().replace(/\s+/g, ' ');
     const estimated = Math.ceil((cleaned.length / 4) * multiplier);
     return Math.max(1, estimated);
   }
 }
 
+
 async function testGrokConnection(apiKey: string): Promise<boolean> {
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+    // Security: Return false immediately if API key is invalid or missing
+    return false;
+  }
+
   try {
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const modelName = config.get<string>('model') || 'grok-3-mini';
@@ -562,11 +569,22 @@ async function testGrokConnection(apiKey: string): Promise<boolean> {
       max_tokens: 3,
       temperature: 0.1
     });
-    return response.choices && response.choices.length > 0;
-  } catch (error) {
-    return false;
+    
+    // Improved check for response structure
+    return response.choices?.length > 0;
+  } catch (error: any) {
+    // Enhanced error handling: Check for specific error types without logging sensitive data
+    if (error.code === 'ECONNABORTED') {
+      // Handle timeout or network error
+      return false;  // Could add more specific logic if needed
+    } else if (error.response?.status === 401) {
+      // Handle authentication error (e.g., invalid API key)
+      return false;
+    }
+    return false;  // General error fallback
   }
 }
+
 
 // Core Functions
 async function showGrokPanel(context: vscode.ExtensionContext, title: string, code: string, language: string, action: string, token: vscode.CancellationToken): Promise<void> {
