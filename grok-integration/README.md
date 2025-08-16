@@ -11,7 +11,7 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 
 ## 🚀 Major Update in v1.7.1
 
-**🎯 Smart Caching System** - Revolutionary performance improvements!
+**🎯 Smart Caching System** - Performance improvements
 
 - **⚡ 10x Faster Responses**: Instant results for repeated queries with intelligent LRU caching
 - **💰 Reduce API Costs**: Avoid duplicate API calls for identical requests  
@@ -19,9 +19,9 @@ Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, ge
 - **🔒 Privacy-First**: Only non-sensitive data cached, secrets automatically redacted
 - **📊 Cache Management**: Built-in commands to view stats, clear cache, and reset settings
 
-**📁 Workspace Export Features** - Analyze entire projects!
+**📁 Workspace Export Features** - Analyze entire projects (subject to your token limits)
 
-- **🗂️ Select Multiple Files**: Choose specific files to send to Grok for analysis
+- **🗂️ Select Multiple Files**: Choose specific files to send to Grok for analysis.  Remember do not include files with secrets.
 - **🌐 Full Workspace Export**: Export all valid files in your workspace to Grok
 - **❓ Custom Workspace Queries**: Ask specific questions about your entire codebase
 - **🛡️ Smart Filtering**: Automatically excludes binary files, node_modules, and sensitive data

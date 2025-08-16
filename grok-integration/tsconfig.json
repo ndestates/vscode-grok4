@@ -13,5 +13,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "src/types/**/*.d.ts", "src/test/*.ts", "**/*.test.ts", "src/utils/context.ts", "src/utils/display.ts"]
+  "exclude": ["node_modules", "src/types/**/*.d.ts", "src/test/*.ts", "**/*.test.ts", "src/utils/context.ts", "src/utils/token_count.ts", "src/utils/display.ts"]
 }
