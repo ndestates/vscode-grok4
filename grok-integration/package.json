@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.7.8",
+  "version": "1.7.801",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
