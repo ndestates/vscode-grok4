@@ -71,3 +71,5 @@ src             # Exclude src if bundling to dist
 test            # Exclude tests
 *.ts            # Exclude TypeScript sources
 .vscode         # Exclude VS Code settings
+temp_compare/
+webpack-stats.json

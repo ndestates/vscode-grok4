@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.7.3",
+  "version": "1.7.8",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
@@ -100,7 +100,7 @@
       },
       {
         "command": "grok-integration.exportAllWorkspaceFiles",
-        "title": "📦 Grok: Export All Workspace Files", 
+        "title": "📦 Grok: Export All Workspace Files",
         "description": "Export all valid workspace files to Grok for comprehensive codebase analysis"
       },
       {
@@ -238,8 +238,8 @@
         "grokIntegration.tokenMultiplier": {
           "type": "number",
           "default": 1.1,
-          "minimum": 1.0,
-          "maximum": 2.0,
+          "minimum": 1,
+          "maximum": 2,
           "description": "Multiplier for token estimation. Increase if you're hitting token limits frequently, decrease for more accurate estimates."
         }
       }
@@ -265,10 +265,12 @@
     "install-vsce-global": "npm install -g @vscode/vsce"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
     "@types/lru-cache": "^7.10.9",
-    "@types/mocha": "^10.0.1",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.102.0",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.25.8",
     "eslint": "^9.0.0",
     "ts-loader": "^9.5.2",

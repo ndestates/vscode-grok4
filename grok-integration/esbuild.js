@@ -9,5 +9,5 @@ esbuild.build({
   platform: 'node',
   target: 'node14', // Adjust based on your VS Code target
   minify: true,
-  sourcemap: false, // Set to true for development
+  sourcemap: true, // Set to true for development
 }).catch(() => process.exit(1));
