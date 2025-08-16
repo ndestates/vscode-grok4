@@ -80,6 +80,17 @@ function generateCacheKey(code: string, language: string, action: string): strin
   }
 }
 
+function validatePath(filePath: string, workspaceRoot: string): boolean {
+  if (path.isAbsolute(filePath) || filePath.includes('..') || filePath.includes('//')) {
+    return false;
+  }
+  const resolved = path.resolve(workspaceRoot, filePath);
+  return resolved.startsWith(workspaceRoot) && !resolved.includes('..');
+}
+
+// Usage example: In parseGrokCodeChanges, replace the check with:
+
+
 // Get from Cache
 function getFromCache(key: string): CacheEntry | undefined {
   if (!cache || !isCacheEnabled() || typeof key !== 'string' || key.length === 0) {
@@ -675,10 +686,15 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                   filePath = filePath.slice(1);
                 }
                 // Security: Validate path - must be relative, no '..', and within workspace
-                if (path.isAbsolute(filePath) || filePath.includes('..')) {
-                  vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace without '..'.`);
-                  continue;
-                }
+                const normalizedPath = path.normalize(filePath).replace(/\.\./g, '');  // Remove '..' elements
+if (normalizedPath.split(path.sep).length > 5 || !normalizedPath.startsWith(workspaceRoot)) {  // Limit depth to 5 levels
+  vscode.window.showErrorMessage(`Path traversal detected or too deep: ${filePath}. Skipping.`);
+  continue;
+}
+if (!validatePath(filePath, workspaceRoot)) {
+  console.warn(`Skipping potentially unsafe file path: ${filePath}`);
+  continue;
+}
                 const resolvedPath = path.normalize(path.join(workspaceRoot, filePath));
                 if (!resolvedPath.startsWith(workspaceRoot)) {
                   vscode.window.showErrorMessage(`Path traversal detected: ${change.file}. Skipping.`);
@@ -835,7 +851,7 @@ function parseGrokCodeChanges(markdown: string): Array<{file: string, code: stri
     }
     
     // Security check: validate file path
-    if (file.includes('..') || path.isAbsolute(file)) {
+    if (file.includes('..') || path.isAbsolute(file) || file.includes('//') || /[\0-\x1F\x7F]/.test(file)) {
       console.warn(`Skipping potentially unsafe file path: ${file}`);
       continue;
     }
@@ -935,9 +951,14 @@ Examples:
 
 Only use this format if you're providing code that should be applied to existing files. For explanations and discussions, use regular markdown.`;
 
-    const prompt = basePrompt + (action.includes('edit') || action.includes('modify') || action.includes('refactor') || action.includes('fix') ? agentModeGuidance : '');
+    const prompt = basePrompt + (action.includes('edit') ? agentModeGuidance : '');
+    const sanitizedPrompt = sanitizeForJson(prompt);  // Ensure prompt is sanitized
+    if (!/^[a-zA-Z0-9\s.,!?\'\"-]+$/.test(sanitizedPrompt)) {  // Basic regex check for safe characters
+      throw new Error('Prompt contains unsafe characters');
+    }
+    const finalPrompt = sanitizedPrompt;  // Use sanitized version
     
-    const tokenCount = await estimateTokens(prompt);
+    const tokenCount = await estimateTokens(finalPrompt);
     const maxTokens = config.get<number>('maxTokens') || 9000;
     
     if (tokenCount > maxTokens) {
