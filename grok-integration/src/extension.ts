@@ -38,10 +38,10 @@ function initializeCache(): void {
   const config = vscode.workspace.getConfiguration('grokIntegration');
   const maxItems = config.get<number>('cacheMaxItems') || 100;
   const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
-
+  
   CACHE_TTL_MS = ttlMinutes * 60 * 1000;
   cache = new LRUCache<string, CacheEntry>({ max: maxItems });
-
+  
   console.log(`Grok cache initialized: max ${maxItems} items, TTL ${ttlMinutes} minutes`);
 }
 
@@ -58,20 +58,20 @@ function generateCacheKey(code: string, language: string, action: string): strin
   if (typeof code !== 'string' || typeof language !== 'string' || typeof action !== 'string') {
     throw new Error('generateCacheKey: All parameters must be strings');
   }
-
+  
   try {
     const crypto = require('crypto');
     // Normalize inputs to ensure consistent keys
     const normalizedCode = code.trim();
     const normalizedLanguage = language.toLowerCase().trim();
     const normalizedAction = action.toLowerCase().trim();
-
+    
     const content = `${normalizedAction}:${normalizedLanguage}:${normalizedCode}`;
-
+    
     // Limit content length to prevent performance issues
-    const truncatedContent = content.length > 50000 ?
+    const truncatedContent = content.length > 50000 ? 
       content.substring(0, 50000) + `[TRUNCATED:${content.length}]` : content;
-
+    
     return crypto.createHash('sha256').update(truncatedContent, 'utf8').digest('hex').substring(0, 16);
   } catch (error) {
     console.error('Error generating cache key:', error);
@@ -80,23 +80,12 @@ function generateCacheKey(code: string, language: string, action: string): strin
   }
 }
 
-function validatePath(filePath: string, workspaceRoot: string): boolean {
-  if (path.isAbsolute(filePath) || filePath.includes('..') || filePath.includes('//')) {
-    return false;
-  }
-  const resolved = path.resolve(workspaceRoot, filePath);
-  return resolved.startsWith(workspaceRoot) && !resolved.includes('..');
-}
-
-// Usage example: In parseGrokCodeChanges, replace the check with:
-
-
 // Get from Cache
 function getFromCache(key: string): CacheEntry | undefined {
   if (!cache || !isCacheEnabled() || typeof key !== 'string' || key.length === 0) {
     return undefined;
   }
-
+  
   try {
     const cached = cache.get(key);
     if (cached) {
@@ -106,13 +95,13 @@ function getFromCache(key: string): CacheEntry | undefined {
         cache.delete(key);
         return undefined;
       }
-
+      
       // Check if cache entry is still valid (not expired)
       const config = vscode.workspace.getConfiguration('grokIntegration');
       const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
       const ttlMs = ttlMinutes * 60 * 1000;
       const isExpired = Date.now() - cached.timestamp > ttlMs;
-
+      
       if (isExpired) {
         cache.delete(key);
         return undefined;
@@ -131,19 +120,19 @@ function setToCache(key: string, response: string, tokenCount: number): void {
   if (!cache || !isCacheEnabled() || typeof key !== 'string' || typeof response !== 'string') {
     return;
   }
-
+  
   // Validate inputs
   if (key.length === 0 || response.length === 0) {
     return;
   }
-
+  
   // Check response size limit (prevent memory abuse)
   const maxResponseSize = 1000000; // 1MB
   if (response.length > maxResponseSize) {
     console.warn(`Response too large for caching: ${response.length} bytes`);
     return;
   }
-
+  
   try {
     const cacheEntry: CacheEntry = {
       response,
@@ -184,11 +173,11 @@ function sanitizeForJson(text: string): string {
   if (typeof text !== 'string') {
     return '';
   }
-
+  
   if (text.length === 0) {
     return text;
   }
-
+  
   try {
     return text
       // Fix incomplete Unicode escapes by removing them
@@ -580,7 +569,7 @@ async function testGrokConnection(apiKey: string): Promise<boolean> {
       max_tokens: 3,
       temperature: 0.1
     });
-
+    
     // Improved check for response structure
     return response.choices?.length > 0;
   } catch (error: any) {
@@ -686,13 +675,8 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                   filePath = filePath.slice(1);
                 }
                 // Security: Validate path - must be relative, no '..', and within workspace
-                const normalizedPath = path.normalize(filePath).replace(/\.\./g, '');  // Remove '..' elements
-                if (normalizedPath.split(path.sep).length > 5 || !normalizedPath.startsWith(workspaceRoot)) {  // Limit depth to 5 levels
-                  vscode.window.showErrorMessage(`Path traversal detected or too deep: ${filePath}. Skipping.`);
-                  continue;
-                }
-                if (!validatePath(filePath, workspaceRoot)) {
-                  console.warn(`Skipping potentially unsafe file path: ${filePath}`);
+                if (path.isAbsolute(filePath) || filePath.includes('..')) {
+                  vscode.window.showErrorMessage(`Invalid file path: ${change.file}. Must be relative within workspace without '..'.`);
                   continue;
                 }
                 const resolvedPath = path.normalize(path.join(workspaceRoot, filePath));
@@ -701,7 +685,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                   continue;
                 }
                 const fileUri = vscode.Uri.file(resolvedPath);
-
+                
                 let doc: vscode.TextDocument;
                 try {
                   doc = await vscode.workspace.openTextDocument(fileUri);
@@ -714,9 +698,9 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                     throw openError;
                   }
                 }
-
+                
                 const edit = new vscode.WorkspaceEdit();
-
+                
                 // Apply different types of changes based on action and line information
                 if (change.lineStart !== undefined && change.lineEnd !== undefined) {
                   // Specific line range replacement
@@ -736,23 +720,23 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                 } else {
                   // Default behavior: try to find and replace similar code, or warn about full replacement
                   const fileContent = doc.getText();
-
+                  
                   // Try to find a similar code block to replace
                   const lines = change.code.split('\n');
                   const searchPattern = lines[0].trim(); // Use first line as search pattern
-
+                  
                   if (searchPattern && fileContent.includes(searchPattern)) {
                     // Try to find the existing code and replace it intelligently
                     const fileLines = fileContent.split('\n');
                     let foundIndex = -1;
-
+                    
                     for (let i = 0; i < fileLines.length; i++) {
                       if (fileLines[i].trim() === searchPattern) {
                         foundIndex = i;
                         break;
                       }
                     }
-
+                    
                     if (foundIndex >= 0) {
                       // Replace from the found line, trying to match the scope of the change
                       const startPos = new vscode.Position(foundIndex, 0);
@@ -776,7 +760,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                       'Append with Markers',
                       'Skip'
                     );
-
+                    
                     if (userChoice === 'Replace Entire File') {
                       edit.replace(fileUri, new vscode.Range(0, 0, doc.lineCount, 0), change.code);
                     } else if (userChoice === 'Append with Markers') {
@@ -790,7 +774,7 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
                     }
                   }
                 }
-
+                
                 await vscode.workspace.applyEdit(edit);
                 await doc.save();
                 vscode.window.showInformationMessage(`Applied Grok changes to ${change.file}`);
@@ -823,50 +807,50 @@ async function showGrokPanel(context: vscode.ExtensionContext, title: string, co
 }
 
 // Helper to parse Grok markdown response for code changes
-function parseGrokCodeChanges(markdown: string): Array<{ file: string, code: string, action?: string, lineStart?: number, lineEnd?: number }> {
-  const changes: Array<{ file: string, code: string, action?: string, lineStart?: number, lineEnd?: number }> = [];
-
+function parseGrokCodeChanges(markdown: string): Array<{file: string, code: string, action?: string, lineStart?: number, lineEnd?: number}> {
+  const changes: Array<{file: string, code: string, action?: string, lineStart?: number, lineEnd?: number}> = [];
+  
   // Input validation
   if (!markdown || typeof markdown !== 'string') {
     return changes;
   }
-
+  
   // Enhanced pattern to capture different types of changes
   const fileBlockRegex = /--- FILE: ([^\n]+) ---([\s\S]*?)```([a-zA-Z]*)\n([\s\S]*?)```/g;
   let match;
   let iterationCount = 0;
   const maxIterations = 100; // Prevent infinite loops
-
+  
   while ((match = fileBlockRegex.exec(markdown)) !== null && iterationCount < maxIterations) {
     iterationCount++;
-
+    
     const file = match[1]?.trim();
     const code = match[4];
     const context = match[2] || ''; // Content between file declaration and code block
-
+    
     // Validate file path
     if (!file || file.length === 0) {
       console.warn('Skipping code change with empty file path');
       continue;
     }
-
+    
     // Security check: validate file path
-    if (file.includes('..') || path.isAbsolute(file) || file.includes('//') || /[\0-\x1F\x7F]/.test(file)) {
+    if (file.includes('..') || path.isAbsolute(file)) {
       console.warn(`Skipping potentially unsafe file path: ${file}`);
       continue;
     }
-
+    
     // Validate code content
     if (code === undefined || code === null) {
       console.warn(`Skipping code change with no content for file: ${file}`);
       continue;
     }
-
+    
     // Try to extract action and line range from context
     let action = 'replace'; // default action
     let lineStart: number | undefined;
     let lineEnd: number | undefined;
-
+    
     // Look for action indicators in the context
     const actionMatch = context.match(/(?:action|operation):\s*(replace|insert|append|prepend)/i);
     if (actionMatch) {
@@ -875,13 +859,13 @@ function parseGrokCodeChanges(markdown: string): Array<{ file: string, code: str
         action = detectedAction;
       }
     }
-
+    
     // Look for line range indicators
     const lineRangeMatch = context.match(/lines?\s*(\d+)(?:\s*-\s*(\d+))?/i);
     if (lineRangeMatch) {
       const startLine = parseInt(lineRangeMatch[1], 10);
       const endLine = lineRangeMatch[2] ? parseInt(lineRangeMatch[2], 10) : startLine;
-
+      
       // Validate line numbers
       if (startLine > 0 && endLine >= startLine && endLine <= 10000) { // Reasonable limits
         lineStart = startLine;
@@ -890,14 +874,14 @@ function parseGrokCodeChanges(markdown: string): Array<{ file: string, code: str
         console.warn(`Invalid line range ${startLine}-${endLine} for file: ${file}`);
       }
     }
-
+    
     changes.push({ file, code, action, lineStart, lineEnd });
   }
-
+  
   if (iterationCount >= maxIterations) {
     console.warn('parseGrokCodeChanges: Maximum iterations reached, possible infinite loop prevented');
   }
-
+  
   return changes;
 }
 
@@ -911,14 +895,14 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
 
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const cacheEnabled = isCacheEnabled();
-
+    
     // Sanitize code for JSON safety first, then redact secrets
     const sanitizedCode = sanitizeForJson(code);
     const redactedCode = redactSecrets(sanitizedCode);
-
+    
     // Generate cache key from non-sensitive content
     const cacheKey = generateCacheKey(sanitizedCode, language, action);
-
+    
     // Check cache first if enabled
     if (cacheEnabled) {
       const cached = getFromCache(cacheKey);
@@ -930,10 +914,10 @@ async function processGrokRequest(panel: vscode.WebviewPanel, code: string, lang
     }
 
     const openai = new OpenAI({ apiKey: apiKey.trim(), baseURL: 'https://api.x.ai/v1', timeout: 60000 });
-
+    
     // Enhanced prompt with guidance for code changes
     const basePrompt = `As Grok, ${action} this ${language} code:\n\n${redactedCode}`;
-
+    
     const agentModeGuidance = `\n\nIMPORTANT: If you need to suggest code changes that should be applied to files, format them using this structure:
 
 --- FILE: relative/path/to/file.ext ---
@@ -951,29 +935,18 @@ Examples:
 
 Only use this format if you're providing code that should be applied to existing files. For explanations and discussions, use regular markdown.`;
 
-    const prompt = basePrompt + (action.includes('edit') ? agentModeGuidance : '');
-    const sanitizedPrompt = sanitizeForJson(prompt);  // Ensure prompt is sanitized
-
-    // Compulsory: Replace the restrictive regex with a more flexible validation, such as checking for specific unsafe patterns or relying on sanitizeForJson.
-    // --- This is suggested as compulsory to improve the security of your code by preventing over-blocking of valid inputs while maintaining protection against injections.
-    if (sanitizedPrompt.includes('<script>') || sanitizedPrompt.includes('<!--')) {  // Example: Check for obvious unsafe patterns
-      throw new Error('Prompt contains potentially unsafe elements');
-    }
-    // Alternatively, if sanitizeForJson is robust, remove the check entirely and log for monitoring:
-    console.warn('Sanitized prompt being used without additional checks for better usability.');
-
-    const finalPrompt = sanitizedPrompt;  // Use sanitized version
-
-    const tokenCount = await estimateTokens(finalPrompt);
+    const prompt = basePrompt + (action.includes('edit') || action.includes('modify') || action.includes('refactor') || action.includes('fix') ? agentModeGuidance : '');
+    
+    const tokenCount = await estimateTokens(prompt);
     const maxTokens = config.get<number>('maxTokens') || 9000;
-
+    
     if (tokenCount > maxTokens) {
       panel.webview.postMessage({ type: 'complete', html: `<p>❌ Request too large: estimated ${tokenCount} tokens exceeds your configured hard limit of ${maxTokens}. Please reduce your selection or increase the limit in settings.</p>` });
       return;
     }
 
     const modelName = config.get<string>('model') || 'grok-3-mini';
-
+    
     // Validate the message content before sending
     try {
       JSON.stringify([{ role: 'user', content: prompt }]);
@@ -981,24 +954,24 @@ Only use this format if you're providing code that should be applied to existing
       panel.webview.postMessage({ type: 'complete', html: '<p>❌ Error: Content contains invalid characters for JSON transmission. Please check for malformed Unicode sequences.</p>' });
       return '# Error\n\nContent contains invalid JSON characters.';
     }
-
+    
     const stream = await openai.chat.completions.create({
       model: modelName,
       messages: [
-        {
-          role: 'system',
+        { 
+          role: 'system', 
           content: 'You are a direct and professional AI programming assistant. You are working as a pair programmer.  Please provide accurate, concise answers with NO witty remarks, jokes, conversational filler, other than polite personality. Be strictly technical and efficient. When suggesting changes, your focus should always be security first, please clearly state which file each change belongs to using `--- FILE: path/to/file.ts ---` and also the line number it should be inserted at or which line numbers should be replaced. All code must be in proper markdown code blocks with the ability for the user to copy or apply to the relevant area. Focus only on the technical content requested.'
         },
-        {
-          role: 'user',
-          content: `${action} this ${language} code:\n\n${redactedCode}`
+        { 
+          role: 'user', 
+          content: `${action} this ${language} code:\n\n${redactedCode}` 
         }
       ],
       max_tokens: maxTokens,
       temperature: 0.2, // Lower temperature for more focused responses
       stream: true,
     });
-
+    
     let fullResponse = '';
     for await (const chunk of stream) {
       if (token.isCancellationRequested) return;
@@ -1187,7 +1160,7 @@ const chatHandler = {
     const config = vscode.workspace.getConfiguration('grokIntegration');
     const apiKey = config.get<string>('apiKey');
     const modelName = config.get<string>('model') || 'grok-3-mini';
-
+    
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       stream.markdown('❌ **API Key Required**: Please set your xAI API key in settings.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22grokIntegration.apiKey%22%5D)');
       return {};
@@ -1289,7 +1262,7 @@ const chatHandler = {
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage }
       ]);
-
+      
       stream.progress('🔍 Connecting to Grok...');
       const response = await openai.chat.completions.create({
         model: modelName,
@@ -1336,13 +1309,13 @@ export async function activate(context: vscode.ExtensionContext) {
   try {
     // Initialize cache with user settings
     initializeCache();
-
+    
     // Listen for configuration changes to update cache settings
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('grokIntegration.cacheMaxItems') ||
-          event.affectsConfiguration('grokIntegration.cacheTtlMinutes') ||
-          event.affectsConfiguration('grokIntegration.enableCache')) {
+            event.affectsConfiguration('grokIntegration.cacheTtlMinutes') ||
+            event.affectsConfiguration('grokIntegration.enableCache')) {
           initializeCache(); // Reinitialize cache with new settings
           vscode.window.showInformationMessage('🔄 Grok cache settings updated.');
         }
@@ -1462,11 +1435,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Example: Add a new command for AI query integration
     const grokCommand = vscode.commands.registerCommand('extension.grokQuery', async () => {
-      const input = await vscode.window.showInputBox({ prompt: 'Ask a question' });
-      if (input) {
-        // Replace with actual API call, e.g., fetch from an AI endpoint
-        vscode.window.showInformationMessage(`Processing query: ${input}`);
-      }
+        const input = await vscode.window.showInputBox({ prompt: 'Ask a question' });
+        if (input) {
+            // Replace with actual API call, e.g., fetch from an AI endpoint
+            vscode.window.showInformationMessage(`Processing query: ${input}`);
+        }
     });
 
     context.subscriptions.push(grokCommand);
@@ -1476,18 +1449,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register a command for the cancel button
     const cancelCommand = vscode.commands.registerCommand('grok-integration.cancelOperation', () => {
-      // Logic to cancel the ongoing operation
-      // Example: if (ongoingProcess) ongoingProcess.cancel();
+        // Logic to cancel the ongoing operation
+        // Example: if (ongoingProcess) ongoingProcess.cancel();
 
-      // Dispose of memory and clear cache
-      // Replace with your actual resources
-      if (operationCache) {
-        operationCache.clear();
-        operationCache = null;
-      }
+        // Dispose of memory and clear cache
+        // Replace with your actual resources
+        if (operationCache) {
+            operationCache.clear();
+            operationCache = null;
+        }
 
-      // Optional: Show a notification
-      vscode.window.showInformationMessage('Operation cancelled and resources disposed.');
+        // Optional: Show a notification
+        vscode.window.showInformationMessage('Operation cancelled and resources disposed.');
     });
 
     context.subscriptions.push(cancelCommand);
@@ -1506,29 +1479,29 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 // Assuming you have a function that prepares the request body
 async function sendRequest() {
-  try {
-    const messages = [
-      { content: "Valid string here" }, // Example for messages[0]
-      { content: "Check this for incomplete escapes, e.g., fix \\u123 to \\u1234" } // messages[1].content
-      // Add other elements as needed
-    ];
+    try {
+        const messages = [
+            { content: "Valid string here" }, // Example for messages[0]
+            { content: "Check this for incomplete escapes, e.g., fix \\u123 to \\u1234" } // messages[1].content
+            // Add other elements as needed
+        ];
 
-    // Validate the JSON structure
-    const requestBody = JSON.stringify(messages);
-    JSON.parse(requestBody);  // This will throw an error if JSON is invalid
+        // Validate the JSON structure
+        const requestBody = JSON.stringify(messages);
+        JSON.parse(requestBody);  // This will throw an error if JSON is invalid
 
-    // Proceed with the request (e.g., using fetch or axios)
-    const response = await fetch('/your-endpoint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: requestBody
-    });
-    // Handle response...
-  } catch (error) {
-    const errorMsg = (error instanceof Error) ? error.message : String(error);
-    vscode.window.showErrorMessage(`JSON Error: ${errorMsg}`);
-    // Log or debug the error for further inspection
-  }
+        // Proceed with the request (e.g., using fetch or axios)
+        const response = await fetch('/your-endpoint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody
+        });
+        // Handle response...
+    } catch (error) {
+        const errorMsg = (error instanceof Error) ? error.message : String(error);
+        vscode.window.showErrorMessage(`JSON Error: ${errorMsg}`);
+        // Log or debug the error for further inspection
+    }
 }
 
 // New function to add file contents
@@ -1542,7 +1515,7 @@ export async function addFileContents(uri: vscode.Uri) {
   try {
     const content = await vscode.workspace.fs.readFile(uri);
     const text = new TextDecoder().decode(content);
-
+    
     // Logic to add file contents (replace with your specific use case, e.g., append to a chat context or global state)
     // Example: Append to a global context or display in output
     const outputChannel = vscode.window.createOutputChannel('Grok File Contents');
@@ -1608,7 +1581,7 @@ export async function getWorkspaceFilesContents(): Promise<{ path: string; conte
   if (!workspaceFolders || workspaceFolders.length === 0) {
     throw new Error("No workspace folder open");
   }
-
+  
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
   const files = await getFilesList();
   const results: { path: string; content: string }[] = [];
@@ -1630,7 +1603,7 @@ export async function getWorkspaceFilesContents(): Promise<{ path: string; conte
 async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   try {
     const files = await getFilesList();
-
+    
     if (files.length === 0) {
       vscode.window.showInformationMessage('No valid files found in workspace.');
       return;
@@ -1640,8 +1613,8 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
     const selectedFiles = await vscode.window.showQuickPick(
       files.map(fileUri => {
         const relativePath = vscode.workspace.asRelativePath(fileUri);
-        return {
-          label: relativePath,
+        return { 
+          label: relativePath, 
           picked: false,
           description: path.extname(fileUri.path) || 'No extension',
           uri: fileUri
@@ -1685,11 +1658,11 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
 
     if (combinedContent) {
       await showGrokPanel(
-        context,
-        `Workspace Export: ${userInstruction} (${selectedFiles.length} files)`,
-        combinedContent,
-        'multiple',
-        userInstruction,
+        context, 
+        `Workspace Export: ${userInstruction} (${selectedFiles.length} files)`, 
+        combinedContent, 
+        'multiple', 
+        userInstruction, 
         token
       );
     }
@@ -1703,7 +1676,7 @@ async function selectWorkspaceFilesCommand(context: vscode.ExtensionContext, tok
 async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken) {
   try {
     const filesWithContent = await getWorkspaceFilesContents();
-
+    
     if (filesWithContent.length === 0) {
       vscode.window.showInformationMessage('No valid files found in workspace.');
       return;
@@ -1739,11 +1712,11 @@ async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, 
     }
 
     await showGrokPanel(
-      context,
-      `Full Workspace Export: ${userInstruction} (${filesWithContent.length} files)`,
-      combinedContent,
-      'multiple',
-      userInstruction,
+      context, 
+      `Full Workspace Export: ${userInstruction} (${filesWithContent.length} files)`, 
+      combinedContent, 
+      'multiple', 
+      userInstruction, 
       token
     );
 
@@ -1766,7 +1739,7 @@ async function askGrokWorkspaceCommand(context: vscode.ExtensionContext, token: 
     }
 
     const filesWithContent = await getWorkspaceFilesContents();
-
+    
     if (filesWithContent.length === 0) {
       vscode.window.showInformationMessage('No valid files found in workspace.');
       return;
@@ -1779,11 +1752,11 @@ async function askGrokWorkspaceCommand(context: vscode.ExtensionContext, token: 
     }
 
     await showGrokPanel(
-      context,
-      `Workspace Query: ${userPrompt}`,
-      combinedContent,
-      'multiple',
-      `answer the user's question: "${userPrompt}" based on`,
+      context, 
+      `Workspace Query: ${userPrompt}`, 
+      combinedContent, 
+      'multiple', 
+      `answer the user's question: "${userPrompt}" based on`, 
       token
     );
 
@@ -1794,16 +1767,16 @@ async function askGrokWorkspaceCommand(context: vscode.ExtensionContext, token: 
 }
 
 export function deactivate() {
-  // No explicit cleanup required; VSCode disposes subscriptions automatically.
+    // No explicit cleanup required; VSCode disposes subscriptions automatically.
 }
 
 // Export functions for testing
 export {
-  parseGrokCodeChanges,
-  redactSecrets,
-  sanitizeForJson,
-  estimateTokens,
-  generateCacheKey,
-  convertMarkdownToHtml,
-  notOnExcludeList
+    parseGrokCodeChanges,
+    redactSecrets,
+    sanitizeForJson,
+    estimateTokens,
+    generateCacheKey,
+    convertMarkdownToHtml,
+    notOnExcludeList
 };
