@@ -145,8 +145,8 @@ All notable changes to the "Grok AI Integration" extension will be documented in
 
 ## [Unreleased]
 
-### Changed
-- Preparing for next development cycle
+### Removed
+-
 
 ## [1.0.12] - 2025-07-14
 ### Added

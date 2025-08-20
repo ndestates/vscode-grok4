@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
@@ -169,15 +169,8 @@
           "command": "grok-integration.showTokenCount",
           "when": "editorHasSelection"
         }
-      ],
-      "explorer/context": [
-        {
-          "command": "grok.addFileContents",
-          "group": "navigation",
-          "when": "resourceFilename"
-        }
       ]
-    },
+   },
     "keybindings": [
       {
         "command": "grok-integration.askGrokInline",
@@ -263,7 +256,10 @@
     "compile": "tsc -p ./",
     "test": "npm run compile && node ./out/test/runTest.js",
     "test-watch": "npm run compile && mocha --watch ./out/test/**/*.test.js",
-    "install-vsce-global": "npm install -g @vscode/vsce"
+    "install-vsce-global": "npm install -g @vscode/vsce",
+    "preversion": "echo 'Running preversion checks...'",
+    "postversion": "node scripts/update-changelog.js",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
@@ -277,7 +273,13 @@
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.3",
     "webpack": "^5.100.1",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^6.0.1",
+    "husky": "^8.0.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "node scripts/pre-commit-hook.js"
+    }
   },
   "keywords": [
     "grok",
