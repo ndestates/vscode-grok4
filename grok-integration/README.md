@@ -3,13 +3,13 @@
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
 ## Version History
-- 1.7.3: Includes amendments to the workspace export functionality. Key changes:
+- 1.8.0: Includes amendments to the workspace export functionality. Key changes:
   - Enhanced export options for workspace configurations.
   - Improved handling of custom settings and extensions.
   - Refer to the documentation for detailed guidance on using the new export features.
 - 1.7.2: Includes minor bugfixes. 
 
-## 🚀 Major Update in v1.7.1
+## 🚀 Major Update in v1.8.0
 
 **🎯 Smart Caching System** - Performance improvements
 
