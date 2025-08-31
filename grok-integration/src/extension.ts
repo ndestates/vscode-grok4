@@ -1246,7 +1246,7 @@ const chatHandler = {
     const workspaceInfo = await getWorkspaceContext();
     const userPrompt = request.prompt || 'Hello';
 
-    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers with NO witty remarks, jokes, conversational filler, or personality. Be strictly technical and efficient and always focus on security first so that the user always has this as their focus. Give the user the reasons for the change, whether they are compulsory or as a suggestion (e,g., `--- This is suggested as compulsory to improve the security of your code---` or `--- This is suggested as a suggestion to improve your code---`).  The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). Provide the line number where a code needs to replace items or be inserted. All code suggestions must be enclosed in a language-specific Markdown code block. Focus only on the technical content requested.';
+    const systemMessage = 'You are a direct and professional AI programming assistant. Provide accurate, concise answers with NO witty remarks, jokes, conversational filler, or personality. Be strictly technical and efficient and always focus on security first so that the user always has this as their focus. Give the user the reasons for the change, whether they are suggested as compulsory or as a suggestion (e,g., `--- This is suggested as compulsory to improve the security of your code---` or `--- This is suggested as a suggestion to improve your code---`).  The user has provided context from one or more files. When suggesting changes, clearly state which file each change belongs to using a markdown file block header (e.g., `--- FILE: path/to/file.ts ---`). Provide the line number where a code needs to replace items or be inserted. All code suggestions must be enclosed in a language-specific Markdown code block. Focus only on the technical content requested.';
     const userMessage = `Task: ${action} the following. User prompt: "${userPrompt}"\n\nHere is the full context from the user's workspace:${redactedContext}\n\nWorkspace Info: ${workspaceInfo}`;
 
     const maxTokens = config.get<number>('maxTokens') || 9000;
@@ -1700,10 +1700,11 @@ async function exportAllWorkspaceFilesCommand(context: vscode.ExtensionContext, 
       value: 'review and analyze the entire workspace'
     });
 
-    if (!userInstruction) {
-      vscode.window.showInformationMessage('Operation cancelled - no instruction provided.');
-      return;
-    }
+    // Check if userInstruction is provided; this prevents execution if it's undefined or null
+if (userInstruction === undefined || userInstruction === null) {
+    vscode.window.showInformationMessage('Operation cancelled: No instruction provided. Please provide a valid instruction.');
+    return;
+}
 
     // Combine all file contents
     let combinedContent = '';
