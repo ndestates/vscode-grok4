@@ -11,7 +11,7 @@ export class MockWorkspaceConfiguration implements vscode.WorkspaceConfiguration
         'cacheTtlMinutes': 30,
         'tokenMultiplier': 1.1,
         'apiKey': 'test-key',
-        'model': 'grok-3-mini',
+        'model': 'grok-code-fast-1',
         'maxTokens': 9000
     };
 
