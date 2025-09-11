@@ -1103,6 +1103,17 @@ async function securityFixCommand(context: vscode.ExtensionContext, token: vscod
   await showGrokPanel(context, 'Security Fix', code, language, 'find and fix security vulnerabilities in', token);
 }
 
+async function fixCodeCommand(context: vscode.ExtensionContext, token: vscode.CancellationToken): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const code = editor.document.getText(editor.selection) || editor.document.getText();
+  const language = editor.document.languageId;
+  await showGrokPanel(context, 'Grok Code Fix', code, language, 'fix', token);
+}
+
 async function showErrorLogCommand() {
   const logFile = path.join(os.homedir(), '.vscode-grok-logs', 'error.log');
   if (!fs.existsSync(logFile)) {
@@ -1371,7 +1382,8 @@ export async function activate(context: vscode.ExtensionContext) {
       registerCancellableCommand('grok-integration.askGrokInline', async (token) => await askGrokInlineCommand(context, token)),
       registerCancellableCommand('grok-integration.editWithGrok', async (token) => await editWithGrokCommand(context, token)),
       registerCancellableCommand('grok-integration.showTokenCount', async (token) => await showTokenCountCommand(token)),
-      vscode.commands.registerCommand('grok-integration.testConnection', async () => {
+        registerCancellableCommand('grok-integration.fixCode', async (token) => await fixCodeCommand(context, token)),
+        vscode.commands.registerCommand('grok-integration.testConnection', async () => {
         const config = vscode.workspace.getConfiguration('grokIntegration');
         const apiKey = config.get<string>('apiKey');
         if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
