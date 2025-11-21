@@ -76,15 +76,19 @@ temp_compare
 compare/*
 
 # Generated documentation and response files
-*.md
-!README.md
-!LICENSE*
-!**/node_modules/**
+# Exclude timestamped grok response files
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]-grok-response.md
+prni[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]-grok-response.md
 
-# Development artifacts
+# Development artifacts and comparison files
 develop/
+compare/
 backup/
-grok-integration/docs/*.md
-grok-integration/*.md
-!grok-integration/README.md
-!grok-integration/LICENSE*
+temp_compare/
+temp_compare
+compare/*
+utils/
+grok-vscode-extension/
+
+# Generated files in docs (but keep legitimate docs)
+grok-integration/docs/*-grok-response.md
