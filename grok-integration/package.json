@@ -2,7 +2,7 @@
   "name": "grok-integration",
   "displayName": "Grok AI Integration",
   "description": "Integrate Grok AI into VS Code",
-  "version": "1.8.5",
+  "version": "1.8.6",
   "publisher": "ndestates",
   "icon": "icon.png",
   "repository": {
@@ -12,7 +12,7 @@
   "license": "MIT",
   "copyright": "Copyright (c) 2024-2025 ndestates",
   "engines": {
-    "vscode": "^1.102.0"
+    "vscode": "^1.104.0"
   },
   "categories": [
     "AI",
@@ -156,19 +156,19 @@
       "editor/context": [
         {
           "command": "grok-integration.explainCode",
-          "when": "editorHasSelection && workspaceTrust"
+          "when": "editorHasSelection"
         },
         {
           "command": "grok-integration.reviewCode",
-          "when": "editorHasSelection && workspaceTrust"
+          "when": "editorHasSelection"
         },
         {
           "command": "grok-integration.suggestImprovements",
-          "when": "editorHasSelection && workspaceTrust"
+          "when": "editorHasSelection"
         },
         {
           "command": "grok-integration.securityFix",
-          "when": "editorHasSelection && workspaceTrust"
+          "when": "editorHasSelection"
         },
         {
           "command": "grok-integration.showTokenCount",
@@ -269,7 +269,7 @@
     "@types/glob": "^8.1.0",
     "@types/lru-cache": "^7.10.9",
     "@types/node": "^24.3.1",
-    "@types/vscode": "^1.102.0",
+    "@types/vscode": "^1.104.0",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.25.8",
     "eslint": "^9.0.0",
@@ -279,7 +279,6 @@
     "typescript": "^5.8.3",
     "webpack": "^5.100.1",
     "webpack-cli": "^6.0.1"
-   
   },
   "husky": {
     "hooks": {
