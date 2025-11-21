@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: grok-integration/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd grok-integration
+        npm ci
+
+    - name: Run TypeScript compilation
+      run: |
+        cd grok-integration
+        npm run compile
+
+    - name: Run tests
+      run: |
+        cd grok-integration
+        npm test
+
+    - name: Build extension
+      run: |
+        cd grok-integration
+        npm run build
+
+    - name: Package extension (for validation)
+      run: |
+        cd grok-integration
+        npm run package
