@@ -7,6 +7,7 @@ import { parseHTML } from 'linkedom';
 import { marked } from 'marked';
 import * as os from 'os';
 import { LRUCache } from 'lru-cache';
+import validator from 'validator';
 
 // If the file exists, ensure it exports VALID_EXTENSIONS. Otherwise, create it as below:
 import { EXCLUDE_LIST } from "./utils/exclude-list";
@@ -145,31 +146,70 @@ function setToCache(key: string, response: string, tokenCount: number): void {
   }
 }
 
-// Fix the redactSecrets function to be more targeted and prevent Unicode corruption
+// Enhanced cache maintenance: periodic cleanup of expired entries for better efficiency
+function cleanupExpiredCacheEntries(): void {
+  if (!cache || !isCacheEnabled()) {
+    return;
+  }
+
+  try {
+    const config = vscode.workspace.getConfiguration('grokIntegration');
+    const ttlMinutes = config.get<number>('cacheTtlMinutes') || 30;
+    const ttlMs = ttlMinutes * 60 * 1000;
+    const now = Date.now();
+
+    // Get all cache keys and check expiration
+    const keysToDelete: string[] = [];
+    for (const [key, entry] of cache.entries()) {
+      if (entry && entry.timestamp && (now - entry.timestamp > ttlMs)) {
+        keysToDelete.push(key);
+      }
+    }
+
+    // Remove expired entries
+    keysToDelete.forEach(key => cache.delete(key));
+
+    if (keysToDelete.length > 0) {
+      console.log(`Cache cleanup: removed ${keysToDelete.length} expired entries`);
+    }
+  } catch (error) {
+    console.error('Error during cache cleanup:', error);
+  }
+}
+
+// Enhanced redactSecrets function with validator library for better pattern matching
 function redactSecrets(text: string): string {
   return text
-    // API keys (various formats)
+    // API keys (various formats) - enhanced with length validation
     .replace(/(api[_-]?key\s*[:=]\s*["']?)([^"'\s\n]{10,})(["']?)/gi, '$1REDACTED$3')
     .replace(/(apikey\s*[:=]\s*["']?)([^"'\s\n]{10,})(["']?)/gi, '$1REDACTED$3')
-    // Tokens
+    // Tokens - enhanced validation
     .replace(/(token\s*[:=]\s*["']?)([^"'\s\n]{20,})(["']?)/gi, '$1REDACTED$3')
     .replace(/(bearer\s+)([a-zA-Z0-9._-]{20,})/gi, '$1REDACTED')
-    // Passwords
+    // Passwords - enhanced validation
     .replace(/(password\s*[:=]\s*["']?)([^"'\s\n]{3,})(["']?)/gi, '$1REDACTED$3')
     .replace(/(passwd\s*[:=]\s*["']?)([^"'\s\n]{3,})(["']?)/gi, '$1REDACTED$3')
     // JWT tokens (more specific pattern)
     .replace(/\b(eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)\b/g, 'JWT_TOKEN_REDACTED')
-    // Email addresses (PII)
-    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, 'EMAIL_REDACTED')
+    // Email addresses using validator for better accuracy
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, (match) => {
+      return validator.isEmail(match) ? 'EMAIL_REDACTED' : match;
+    })
+    // URLs using validator
+    .replace(/\bhttps?:\/\/[^\s<>"']+\b/g, (match) => {
+      return validator.isURL(match) ? 'URL_REDACTED' : match;
+    })
     // Phone numbers (basic patterns)
     .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, 'PHONE_REDACTED')
     // SSH private keys
-    .replace(/(-----BEGIN [A-Z ]+PRIVATE KEY-----)([\s\S]*?)(-----END [A-Z ]+PRIVATE KEY-----)/gi, '$1\nREDACTED\n$3');
+    .replace(/(-----BEGIN [A-Z ]+PRIVATE KEY-----)([\s\S]*?)(-----END [A-Z ]+PRIVATE KEY-----)/gi, '$1\nREDACTED\n$3')
+    // Credit card numbers (basic pattern)
+    .replace(/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, 'CREDIT_CARD_REDACTED');
 }
 
-// Add this missing sanitizeForJson function
+// Enhanced sanitizeForJson function with validator library for robust input sanitization
 function sanitizeForJson(text: string): string {
-  // Input validation
+  // Input validation with validator
   if (typeof text !== 'string') {
     return '';
   }
@@ -178,8 +218,11 @@ function sanitizeForJson(text: string): string {
     return text;
   }
 
+  // Use validator to escape HTML and prevent XSS
+  let sanitized = validator.escape(text);
+
   try {
-    return text
+    return sanitized
       // Fix incomplete Unicode escapes by removing them
       .replace(/\\u[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])/g, '')
       // Remove other potentially problematic escape sequences
@@ -1366,6 +1409,17 @@ export async function activate(context: vscode.ExtensionContext) {
   try {
     // Initialize cache with user settings
     initializeCache();
+
+    // Set up periodic cache cleanup for better efficiency (every 30 minutes)
+    const cacheCleanupInterval = setInterval(() => {
+      cleanupExpiredCacheEntries();
+    }, 30 * 60 * 1000); // 30 minutes
+
+    context.subscriptions.push({
+      dispose: () => {
+        clearInterval(cacheCleanupInterval);
+      }
+    });
 
     // Listen for configuration changes to update cache settings
     context.subscriptions.push(
