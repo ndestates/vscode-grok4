@@ -74,3 +74,17 @@ temp_compare/
 
 temp_compare
 compare/*
+
+# Generated documentation and response files
+*.md
+!README.md
+!LICENSE*
+!**/node_modules/**
+
+# Development artifacts
+develop/
+backup/
+grok-integration/docs/*.md
+grok-integration/*.md
+!grok-integration/README.md
+!grok-integration/LICENSE*
