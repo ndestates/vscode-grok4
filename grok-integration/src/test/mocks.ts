@@ -25,12 +25,12 @@ export class MockWorkspaceConfiguration implements vscode.WorkspaceConfiguration
         return this.config.hasOwnProperty(section);
     }
 
-    inspect<T>(section: string): { 
-        key: string; 
-        defaultValue?: T; 
-        globalValue?: T; 
-        workspaceValue?: T; 
-        workspaceFolderValue?: T; 
+    inspect<T>(section: string): {
+        key: string;
+        defaultValue?: T;
+        globalValue?: T;
+        workspaceValue?: T;
+        workspaceFolderValue?: T;
     } | undefined {
         return undefined;
     }
@@ -55,14 +55,17 @@ export function createMockTextDocument(content: string, languageId: string = 'ty
             if (!range) return content;
             return content; // Simplified for mock
         },
-        lineAt: (line: number) => ({
-            text: lines[line] || '',
-            lineNumber: line,
-            range: new vscode.Range(line, 0, line, (lines[line] || '').length),
-            isEmptyOrWhitespace: (lines[line] || '').trim().length === 0,
-            firstNonWhitespaceCharacterIndex: 0,
-            rangeIncludingLineBreak: new vscode.Range(line, 0, line + 1, 0)
-        }),
+        lineAt: (line: number | vscode.Position) => {
+            const lineNumber = typeof line === 'number' ? line : line.line;
+            return {
+                text: lines[lineNumber] || '',
+                lineNumber,
+                range: new vscode.Range(lineNumber, 0, lineNumber, (lines[lineNumber] || '').length),
+                isEmptyOrWhitespace: (lines[lineNumber] || '').trim().length === 0,
+                firstNonWhitespaceCharacterIndex: 0,
+                rangeIncludingLineBreak: new vscode.Range(lineNumber, 0, lineNumber + 1, 0)
+            };
+        },
         languageId
     };
 }
