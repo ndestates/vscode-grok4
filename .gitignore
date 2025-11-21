@@ -92,3 +92,4 @@ grok-vscode-extension/
 
 # Generated files in docs (but keep legitimate docs)
 grok-integration/docs/*-grok-response.md
+cleanup-remote-branches.sh
