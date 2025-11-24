@@ -3,7 +3,7 @@ Copyright (c) 2025, ND Holdings Limited. All rights reserved.
 
 This software is proprietary and confidential. It is licensed, not sold. By installing, copying, or using this software, you agree to the following terms:
 
-1. **Grant of License**: ND Holdings Limited grants you a limited, non-exclusive, non-transferable license to use this software for personal and commercial purposes, subject to payment of any applicable fees and compliance with this agreement.
+1. **Grant of License**: ND Holdings Limited grants you a limited, non-exclusive, non-transferable license to use this software for personal purposes, subject to payment of any applicable fees and compliance with this agreement.
 
 2. **Restrictions**: You may not:
    - Modify, reverse-engineer, decompile, or disassemble the software.
