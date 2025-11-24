@@ -228,7 +228,7 @@ function sanitizeForJson(text: string): string {
       // Remove other potentially problematic escape sequences
       .replace(/\\x[0-9A-Fa-f]{1}(?![0-9A-Fa-f])/g, '')
       // Handle control characters that might break JSON
-      .replace(/[\x00-\x1F\x7F]/g, (char) => {
+      .replace(/[\x00-\x1F\x7F]/g, (char: string) => {
         switch (char) {
           case '\n': return '\\n';
           case '\r': return '\\r';
