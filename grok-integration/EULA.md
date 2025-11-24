@@ -10,10 +10,8 @@ This software is proprietary and confidential. It is licensed, not sold. By inst
    - Distribute, sublicense, rent, or sell the software without explicit written permission.
    - Use the software in violation of any laws.
 
-3. **Secure Licensing**: Usage requires a valid license key, which may be validated against our servers. Unauthorized use will result in deactivation.
+3. **Termination**: This license terminates if you breach any terms. Upon termination, you must destroy all copies.
 
-4. **Termination**: This license terminates if you breach any terms. Upon termination, you must destroy all copies.
-
-5. **No Warranty**: The software is provided "as is" without warranties of any kind.
+4. **No Warranty**: The software is provided "as is" without warranties of any kind.
 
 For full terms, contact support@ndestates.com
