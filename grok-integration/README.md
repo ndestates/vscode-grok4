@@ -3,6 +3,7 @@
 Bring the power of Grok AI directly into your VS Code editor! Chat with Grok, get code explanations, reviews, and suggestions without leaving your development environment.
 
 ## Version History
+- 1.8.3: The default model has been changed to `grok-code-fast-1` for improved performance and efficiency.
 - 1.8.0: Includes amendments to the workspace export functionality. Key changes:
   - Enhanced export options for workspace configurations.
   - Improved handling of custom settings and extensions.

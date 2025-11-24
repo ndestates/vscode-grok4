@@ -12,6 +12,7 @@ database:
 use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
+webimage_extra_packages: [libnspr4-2d, libnss3, libatk-bridge2.0-0, libdrm2, libxkbcommon0, libxss1, libasound2]
 corepack_enable: false
 
 # Key features of DDEV's config.yaml:

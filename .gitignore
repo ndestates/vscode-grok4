@@ -74,3 +74,22 @@ temp_compare/
 
 temp_compare
 compare/*
+
+# Generated documentation and response files
+# Exclude timestamped grok response files
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]-grok-response.md
+prni[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]-grok-response.md
+
+# Development artifacts and comparison files
+develop/
+compare/
+backup/
+temp_compare/
+temp_compare
+compare/*
+utils/
+grok-vscode-extension/
+
+# Generated files in docs (but keep legitimate docs)
+grok-integration/docs/*-grok-response.md
+cleanup-remote-branches.sh
